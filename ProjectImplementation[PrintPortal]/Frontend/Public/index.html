@@ -5,23 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PrintPortal</title>
     <link rel="stylesheet" href="./Assets/CSS/style.css">
-    <script src="./Assets/JS/script.js" defer></script>
+    <script type="module" src="./Assets/JS/script.js" defer></script>
 </head>
 <body>
-    <header>
-        <h1>PrintPortal</h1>
-        <p>Your printing portal</p>
+    <header class="top">
+      <div class="wrap">
+        <div class="bar">
+          <span class="brand">🖨️ Capital Community Print</span>
+          <nav aria-label="Main"><a href="#requests" id="n-requests">Requests</a><a href="#new" id="n-new">New request</a></nav>
+        </div>
+        <div class="demo">
+          <span><b>Demo mode</b> · mock data kept in this browser, no real API</span>
+          <label
+            >Signed in as
+            <select id="who"></select
+          ></label>
+          <label><input type="checkbox" id="fail" style="width: auto; min-height: 0" /> Simulate API failure</label>
+          <button type="button" id="rst">Reset demo data</button>
+        </div>
+      </div>
     </header>
-
-    <main>
-        <section class="card">
-            <h2>Welcome to PrintPortal</h2>
-            <p>A simple portal for managing printing services.</p>
-
-            <div id="api-status" role="status">
-                Checking API connection...
-            </div>
-        </section>
+    <main class="wrap">
+      <div id="note" aria-live="polite"></div>
+      <div id="app"></div>
+      <footer>Synthetic demo records only. Customers see their own requests; coordinators see all of them.</footer>
     </main>
 
     <footer>
