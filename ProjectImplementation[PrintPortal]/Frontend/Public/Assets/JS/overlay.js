@@ -5,7 +5,7 @@ export async function initXyberOverlay() {
 ══════════════════════════════════════════════════════ */
   const CONFIG = {
     badge: {
-      image: './Assets/Images/Xyber.webp',
+      image: './Public/Assets/Images/Xyber.webp',
       label: 'xybercore',
       version: 'v1.0',
     },
@@ -85,7 +85,7 @@ export async function initXyberOverlay() {
             name: 'Riker Hoch',
             role: 'Front-End & Integration Lead',
             badge: 'Developer',
-            logo: './Assets/Images/riker.webp',
+            logo: './Public/Assets/Images/riker.webp',
             color: 'rgba(124,77,255,.18)',
             description: 'Leads front-end development, website architecture, responsive layouts, JavaScript interactions and integration.',
             socials: [
@@ -126,7 +126,7 @@ export async function initXyberOverlay() {
             name: 'Caleb Lambert',
             role: 'API & Data Development',
             badge: 'Developer',
-            logo: './Assets/Images/caleb.webp',
+            logo: './Public/Assets/Images/caleb.webp',
             color: 'rgba(255,180,80,.18)',
             description: 'Responsible for API development, data handling and backend implementation.',
             socials: [
@@ -143,7 +143,7 @@ export async function initXyberOverlay() {
         section: 'Lecturer',
         items: [
           {
-            name: 'Bilal Ishfaq',
+            name: 'Liang Wang',
             role: 'Course Lecturer / Supervisor',
             badge: 'Academic',
             logo: '/SRC/Assets/Images/SiteIcons/Profile.webp',
@@ -1218,6 +1218,7 @@ export async function initXyberOverlay() {
   const socialTitle = socialModal.querySelector('#xc-social-title');
   const socialSubtitle = socialModal.querySelector('#xc-social-subtitle');
   const socialAvatar = socialModal.querySelector('#xc-social-avatar');
+  const socialContent = socialModal.querySelector('#xc-social-content');
 
   let previouslyFocusedElement = null;
 
