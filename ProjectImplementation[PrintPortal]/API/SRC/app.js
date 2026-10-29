@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('node:path');
 
 const app = express();
 
@@ -11,6 +12,11 @@ app.get('/api/health', (req, res) => {
         service: 'PrintPortal API'
     });
 });
+
+// Serve the frontend HTML, CSS and JavaScript
+const frontendPath = path.join(__dirname, '../../Frontend/Public');
+
+app.use(express.static(frontendPath));
 
 // Handle unknown routes
 app.use((req, res) => {
