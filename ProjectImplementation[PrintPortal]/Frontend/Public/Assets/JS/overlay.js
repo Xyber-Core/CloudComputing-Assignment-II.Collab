@@ -129,6 +129,13 @@ export async function initXyberOverlay() {
             logo: './Assets/Images/caleb.webp',
             color: 'rgba(255,180,80,.18)',
             description: 'Responsible for API development, data handling and backend implementation.',
+            socials: [
+              {
+                name: 'GitHub',
+                username: 'your-username',
+                url: 'https://github.com/your-username',
+              },
+            ],
           },
         ],
       },
@@ -209,7 +216,6 @@ export async function initXyberOverlay() {
         ],
       },
     ],
-
 
     pages: [
       { file: 'Homepage', desc: 'Landing page — hero, featured drinks, brand story', color: 'green' },
@@ -471,120 +477,389 @@ export async function initXyberOverlay() {
   .xc-mpane { display:none; position:relative; z-index:1; flex:1; overflow:hidden; }
   .xc-mpane.active { display:flex; flex-direction:column; }
 
-  /* Developer socials button */
+
+/* ── Premium Developer Contact Button ── */
 .xc-dev-social-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-top: 8px;
-    padding: 5px 10px;
-    border: 1px solid rgba(0, 229, 255, .3);
-    border-radius: 7px;
-    background: rgba(0, 229, 255, .07);
-    color: var(--xc-accent2, #00e5ff);
-    font: inherit;
-    font-size: .62rem;
-    font-weight: 700;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 7px 13px;
+    overflow: hidden;
+
+    border: 1px solid rgba(124, 77, 255, .42);
+    border-radius: 8px;
+
+    background:
+        linear-gradient(110deg,
+            rgba(124, 77, 255, .13),
+            rgba(0, 229, 255, .07));
+
+    color: #c8bdff;
+    font-family: inherit;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .035em;
+
     cursor: pointer;
-    transition: background .2s, border-color .2s;
+    transition:
+        transform .2s ease,
+        border-color .2s ease,
+        box-shadow .2s ease,
+        background .2s ease;
+}
+
+.xc-dev-social-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        110deg,
+        transparent 20%,
+        rgba(255, 255, 255, .09) 50%,
+        transparent 80%
+    );
+    transform: translateX(-120%);
+    transition: transform .45s ease;
 }
 
 .xc-dev-social-btn:hover {
-    background: rgba(0, 229, 255, .16);
+    transform: translateY(-2px);
     border-color: rgba(0, 229, 255, .65);
+    color: #fff;
+    background: linear-gradient(
+        110deg,
+        rgba(124, 77, 255, .24),
+        rgba(0, 229, 255, .13)
+    );
+    box-shadow:
+        0 4px 18px rgba(124, 77, 255, .17),
+        0 0 12px rgba(0, 229, 255, .08);
 }
 
-/* Small social links modal */
+.xc-dev-social-btn:hover::before {
+    transform: translateX(120%);
+}
+
+.xc-dev-social-btn:active {
+    transform: translateY(0) scale(.97);
+}
+
+.xc-dev-social-btn:focus-visible {
+    outline: 2px solid #00e5ff;
+    outline-offset: 3px;
+}
+
+.xc-dev-social-btn .xc-social-arrow {
+    display: inline-block;
+    transition: transform .2s ease;
+}
+
+.xc-dev-social-btn:hover .xc-social-arrow {
+    transform: translate(2px, -2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .xc-dev-social-btn,
+    .xc-dev-social-btn::before,
+    .xc-dev-social-btn .xc-social-arrow {
+        transition: none;
+    }
+}
+
+
+
+/* ── Developer Contact Hub ── */
 #xc-social-modal {
     position: fixed;
     inset: 0;
     z-index: 100001;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 16px;
-    background: rgba(0, 0, 0, .55);
-    backdrop-filter: blur(5px);
+    padding: 18px;
+
+    background: rgba(0, 0, 0, .68);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .22s ease, visibility .22s ease;
 }
 
 #xc-social-modal.open {
-    display: flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .xc-social-box {
-    width: min(300px, 100%);
-    max-height: 70vh;
+    --social-purple: #7c4dff;
+    --social-cyan: #00e5ff;
+    --social-text: #eceaf8;
+    --social-muted: #8986a8;
+
+    position: relative;
+    width: min(390px, 100%);
+    max-height: min(78vh, 620px);
     overflow-y: auto;
-    padding: 16px;
-    border: 1px solid rgba(124, 77, 255, .45);
-    border-radius: 14px;
-    background: #0b0b14;
-    color: #eceaf8;
-    box-shadow: 0 18px 55px rgba(0, 0, 0, .65);
+    padding: 0;
+
+    border: 1px solid rgba(124, 77, 255, .48);
+    border-radius: 17px;
+    background:
+        radial-gradient(
+            ellipse at top right,
+            rgba(0, 229, 255, .08),
+            transparent 55%
+        ),
+        radial-gradient(
+            ellipse at bottom left,
+            rgba(124, 77, 255, .12),
+            transparent 55%
+        ),
+        #0b0b14;
+
+    color: var(--social-text);
+    box-shadow:
+        0 0 0 1px rgba(0, 229, 255, .07),
+        0 25px 80px rgba(0, 0, 0, .7),
+        0 0 35px rgba(124, 77, 255, .13);
+
+    transform: translateY(12px) scale(.97);
+    transition: transform .22s ease;
+}
+
+#xc-social-modal.open .xc-social-box {
+    transform: translateY(0) scale(1);
+}
+
+.xc-social-box::-webkit-scrollbar {
+    width: 4px;
+}
+
+.xc-social-box::-webkit-scrollbar-thumb {
+    background: linear-gradient(#7c4dff, #00e5ff);
+    border-radius: 8px;
 }
 
 .xc-social-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 12px;
+    padding: 17px;
+    margin: 0;
+
+    border-bottom: 1px solid rgba(124, 77, 255, .2);
+    background: rgba(11, 11, 20, .96);
+    backdrop-filter: blur(12px);
+}
+
+.xc-social-heading {
+    flex: 1;
+    min-width: 0;
 }
 
 .xc-social-title {
-    font-size: .82rem;
-    font-weight: 800;
+    font-size: .88rem;
+    font-weight: 900;
+    letter-spacing: .015em;
+    overflow-wrap: anywhere;
+}
+
+.xc-social-subtitle {
+    margin-top: 4px;
+    color: var(--social-muted);
+    font-size: .65rem;
+}
+
+.xc-social-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 39px;
+    height: 39px;
+    border: 1px solid rgba(0, 229, 255, .4);
+    border-radius: 12px;
+
+    background: linear-gradient(
+        135deg,
+        rgba(124, 77, 255, .3),
+        rgba(0, 229, 255, .12)
+    );
+
+    color: #fff;
+    font-size: .9rem;
+    font-weight: 900;
 }
 
 .xc-social-close {
-    border: 0;
-    background: transparent;
-    color: #aaa;
-    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 31px;
+    height: 31px;
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 8px;
+
+    background: rgba(255, 255, 255, .04);
+    color: #aaa7c3;
+    font-size: 1rem;
     cursor: pointer;
+    transition: .18s ease;
+}
+
+.xc-social-close:hover {
+    border-color: rgba(255, 90, 110, .5);
+    background: rgba(255, 60, 80, .12);
+    color: #ff8290;
+}
+
+.xc-social-body {
+    padding: 15px 16px 17px;
+}
+
+.xc-social-section {
+    margin-bottom: 17px;
+}
+
+.xc-social-section:last-child {
+    margin-bottom: 0;
+}
+
+.xc-social-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 8px;
+
+    color: #00d8ee;
+    font-size: .59rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.xc-social-section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        rgba(0, 229, 255, .22),
+        transparent
+    );
 }
 
 .xc-social-link {
-    display: block;
-    padding: 9px 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
     margin-top: 6px;
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 8px;
-    color: #eceaf8;
+    padding: 10px 11px;
+
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .025);
+
+    color: var(--social-text);
     text-decoration: none;
-    font-size: .72rem;
-    background: rgba(255, 255, 255, .035);
+    transition:
+        border-color .18s ease,
+        background .18s ease,
+        transform .18s ease;
 }
 
 .xc-social-link:hover {
-    border-color: rgba(0, 229, 255, .4);
-    background: rgba(0, 229, 255, .07);
+    transform: translateX(2px);
+    border-color: rgba(0, 229, 255, .35);
+    background: rgba(0, 229, 255, .055);
+}
+
+.xc-social-link:focus-visible {
+    outline: 2px solid #00e5ff;
+    outline-offset: 2px;
+}
+
+.xc-social-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+
+    border: 1px solid rgba(124, 77, 255, .22);
+    border-radius: 8px;
+    background: rgba(124, 77, 255, .1);
+
+    color: #c7b9ff;
+    font-size: .9rem;
+}
+
+.xc-social-link-copy {
+    flex: 1;
+    min-width: 0;
+}
+
+.xc-social-name {
+    display: block;
+    font-size: .72rem;
+    font-weight: 800;
+    overflow-wrap: anywhere;
 }
 
 .xc-social-user {
     display: block;
     margin-top: 3px;
-    color: #8885a8;
+    color: var(--social-muted);
     font-size: .62rem;
     overflow-wrap: anywhere;
 }
 
+.xc-social-external {
+    color: #77748f;
+    font-size: .8rem;
+}
+
 .xc-social-empty {
-    color: #8885a8;
-    font-size: .72rem;
+    margin: 0;
+    padding: 10px;
+    border: 1px dashed rgba(124, 77, 255, .2);
+    border-radius: 8px;
+    color: var(--social-muted);
+    font-size: .68rem;
     line-height: 1.5;
 }
-    
-  .xc-mscroll {
-    flex:1; overflow-y:auto;
-    padding:14px 16px 18px;
-  }
-  .xc-mscroll::-webkit-scrollbar { width:3px; }
-  .xc-mscroll::-webkit-scrollbar-track { background:transparent; }
-  .xc-mscroll::-webkit-scrollbar-thumb {
-    background:linear-gradient(to bottom,var(--xc-accent),var(--xc-accent2));
-    border-radius:2px;
-  }
+
+.xc-social-footer {
+    padding: 10px 16px;
+    border-top: 1px solid rgba(124, 77, 255, .16);
+    color: #77748f;
+    font-size: .58rem;
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #xc-social-modal,
+    .xc-social-box,
+    .xc-social-link,
+    .xc-social-close {
+        transition: none;
+    }
+}
 
   /* section label */
   .xc-sec {
@@ -766,10 +1041,14 @@ export async function initXyberOverlay() {
             ${
               group.section === 'Developers'
                 ? `<button
-                        type="button"
-                        class="xc-dev-social-btn"
-                        data-developer="${encodeURIComponent(d.name)}" 
-                    >↗ Socials</button>`
+                type="button"
+                class="xc-dev-social-btn"
+                data-developer="${encodeURIComponent(d.name)}"
+                aria-label="View contact details for ${d.name}"
+                >
+                <span>Contact & Socials</span>
+                <span class="xc-social-arrow" aria-hidden="true">↗</span>
+                </button>`
                 : ''
             }
               </div>
@@ -897,49 +1176,137 @@ export async function initXyberOverlay() {
   </div>`;
   document.body.appendChild(backdrop);
 
-  
   // ── Developer socials modal ──
   const socialModal = document.createElement('div');
   socialModal.id = 'xc-social-modal';
 
   socialModal.innerHTML = `
-    <div class="xc-social-box" role="dialog"
-         aria-modal="true" aria-labelledby="xc-social-title">
-      <div class="xc-social-head">
+  <div class="xc-social-box"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="xc-social-title"
+       aria-describedby="xc-social-subtitle">
+
+    <div class="xc-social-head">
+      <div class="xc-social-avatar" id="xc-social-avatar"
+           aria-hidden="true">XC</div>
+
+      <div class="xc-social-heading">
         <div class="xc-social-title" id="xc-social-title">
-          Developer Socials
+          Developer Contact Hub
         </div>
-        <button type="button" class="xc-social-close"
-                aria-label="Close socials">✕</button>
+        <div class="xc-social-subtitle" id="xc-social-subtitle">
+          Contact details and online profiles
+        </div>
       </div>
-      <div id="xc-social-content"></div>
+
+      <button type="button"
+              class="xc-social-close"
+              aria-label="Close contact modal">✕</button>
     </div>
-  `;
+
+    <div class="xc-social-body" id="xc-social-content"></div>
+
+    <div class="xc-social-footer">
+      XYBER CORE · DEVELOPER DIRECTORY
+    </div>
+  </div>
+`;
 
   document.body.appendChild(socialModal);
 
-  const socialContent = socialModal.querySelector('#xc-social-content');
   const socialTitle = socialModal.querySelector('#xc-social-title');
+  const socialSubtitle = socialModal.querySelector('#xc-social-subtitle');
+  const socialAvatar = socialModal.querySelector('#xc-social-avatar');
+
+  let previouslyFocusedElement = null;
 
   function closeSocialModal() {
     socialModal.classList.remove('open');
+
+    if (previouslyFocusedElement?.isConnected) {
+      previouslyFocusedElement.focus();
+    }
   }
 
-  socialModal.querySelector('.xc-social-close')
-    .addEventListener('click', closeSocialModal);
+  socialModal.querySelector('.xc-social-close').addEventListener('click', closeSocialModal);
 
-  // Close when clicking outside the socials box.
   socialModal.addEventListener('click', (event) => {
     if (event.target === socialModal) {
       closeSocialModal();
     }
   });
 
-  // Open the selected developer's socials.
+  function createSocialSection(title, icon, entries) {
+    if (!entries.length) return null;
+
+    const section = document.createElement('section');
+    section.className = 'xc-social-section';
+
+    const heading = document.createElement('div');
+    heading.className = 'xc-social-section-title';
+    heading.textContent = `${icon}  ${title}`;
+    section.appendChild(heading);
+
+    entries.forEach((entry) => {
+      let safeUrl;
+
+      try {
+        safeUrl = new URL(entry.url);
+      } catch {
+        return;
+      }
+
+      if (!['https:', 'http:'].includes(safeUrl.protocol)) {
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.className = 'xc-social-link';
+      link.href = safeUrl.href;
+
+      if (safeUrl.protocol === 'https:') {
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      }
+
+      const symbol = document.createElement('span');
+      symbol.className = 'xc-social-icon';
+      symbol.setAttribute('aria-hidden', 'true');
+      symbol.textContent = entry.icon || '↗';
+
+      const copy = document.createElement('span');
+      copy.className = 'xc-social-link-copy';
+
+      const name = document.createElement('span');
+      name.className = 'xc-social-name';
+      name.textContent = entry.name || 'Website';
+
+      const username = document.createElement('span');
+      username.className = 'xc-social-user';
+      username.textContent = entry.username || entry.url;
+
+      const arrow = document.createElement('span');
+      arrow.className = 'xc-social-external';
+      arrow.setAttribute('aria-hidden', 'true');
+      arrow.textContent = '↗';
+
+      copy.append(name, username);
+      link.append(symbol, copy, arrow);
+      section.appendChild(link);
+    });
+
+    // Don't display a heading if all supplied links were invalid.
+    if (!section.querySelector('.xc-social-link')) {
+      return null;
+    }
+
+    return section;
+  }
+
   backdrop.addEventListener('click', (event) => {
     const button = event.target.closest('.xc-dev-social-btn');
-
-    if (!button) return;
+    if (!button || !backdrop.contains(button)) return;
 
     let developerName;
 
@@ -956,63 +1323,89 @@ export async function initXyberOverlay() {
 
     if (!developer) return;
 
-    socialTitle.textContent = `${developer.name} · Socials`;
+    previouslyFocusedElement = button;
+
+    socialTitle.textContent = developer.name;
+    socialSubtitle.textContent = 'Contact details and online profiles';
+    socialAvatar.textContent = developer.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
+
     socialContent.replaceChildren();
 
-    const socials = developer.socials || [];
-    let validLinks = 0;
+    // Support either a single email address or multiple email entries.
+    const emailEntries = (Array.isArray(developer.emails) ? developer.emails : developer.email ? [{ address: developer.email }] : [])
+      .map((email) => {
+        const address = typeof email === 'string' ? email : email.address;
 
-    socials.forEach((social) => {
-      // Accept only valid HTTP or HTTPS links.
-      let safeUrl;
+        if (!address || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+          return null;
+        }
 
-      try {
-        safeUrl = new URL(social.url);
-      } catch {
-        return;
-      }
+        return {
+          name: typeof email === 'object' && email.label ? email.label : 'Email',
+          username: address,
+          url: `mailto:${address}`,
+          icon: '@',
+        };
+      })
+      .filter(Boolean);
 
-      if (!['https:', 'http:'].includes(safeUrl.protocol)) {
-        return;
-      }
+    // Websites/domains can be supplied as full URLs or domain names.
+    const websiteEntries = (developer.websites || [])
+      .map((website) => {
+        const rawUrl = typeof website === 'string' ? website : website.url;
 
-      const link = document.createElement('a');
-      link.className = 'xc-social-link';
-      link.href = safeUrl.href;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
+        if (!rawUrl) return null;
 
-      const name = document.createElement('span');
-      name.textContent = social.name || 'Social profile';
+        let url = rawUrl.trim();
 
-      const username = document.createElement('span');
-      username.className = 'xc-social-user';
-      username.textContent = social.username || '';
+        if (!/^https?:\/\//i.test(url)) {
+          url = `https://${url}`;
+        }
 
-      link.append(name, username);
-      socialContent.appendChild(link);
-      validLinks++;
-    });
+        return {
+          name: typeof website === 'object' && website.name ? website.name : 'Website',
+          username: typeof website === 'object' && website.domain ? website.domain : rawUrl,
+          url,
+          icon: '⌘',
+        };
+      })
+      .filter(Boolean);
 
-    if (validLinks === 0) {
-      const emptyMessage = document.createElement('p');
-      emptyMessage.className = 'xc-social-empty';
-      emptyMessage.textContent =
-        'No social profiles have been added yet.';
+    // Preserve your existing socials configuration.
+    const socialEntries = (developer.socials || []).map((social) => ({
+      name: social.name || 'Social profile',
+      username: social.username || '',
+      url: social.url,
+      icon: social.icon || '↗',
+    }));
 
-      socialContent.appendChild(emptyMessage);
+    const sections = [createSocialSection('Email', '@', emailEntries), createSocialSection('Websites & Domains', '⌘', websiteEntries), createSocialSection('Social Media', '↗', socialEntries)].filter(Boolean);
+
+    if (sections.length) {
+      socialContent.append(...sections);
+    } else {
+      const empty = document.createElement('p');
+      empty.className = 'xc-social-empty';
+      empty.textContent = 'No contact details have been added for this developer yet.';
+      socialContent.appendChild(empty);
     }
 
     socialModal.classList.add('open');
+
+    socialModal.querySelector('.xc-social-close').focus();
   });
 
-  // Escape closes the socials modal.
+  // Close the contact modal with Escape.
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && socialModal.classList.contains('open')) {
       closeSocialModal();
     }
   });
-
 
   let isOpen = false;
   const open = () => {
@@ -1043,5 +1436,3 @@ export async function initXyberOverlay() {
     });
   });
 }
-
-
