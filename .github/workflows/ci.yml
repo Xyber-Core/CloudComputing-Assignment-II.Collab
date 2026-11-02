@@ -1,3 +1,4 @@
+
 name: PrintPortal CI
 
 on:
@@ -19,12 +20,12 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: "ProjectImplementation[PrintPortal]/package-lock.json"
+          cache-dependency-path: "ProjectImplementation[PrintPortal]/API/package-lock.json"
 
       - name: Install API dependencies
-        working-directory: "ProjectImplementation[PrintPortal]"
+        working-directory: "ProjectImplementation[PrintPortal]/API"
         run: npm ci
 
       - name: Run API tests
-        working-directory: "ProjectImplementation[PrintPortal]"
+        working-directory: "ProjectImplementation[PrintPortal]/API"
         run: npm test
