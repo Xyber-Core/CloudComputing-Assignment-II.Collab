@@ -19,8 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: "ProjectImplementation[PrintPortal]/API/package-lock.json"
 
       - name: Install API dependencies
         working-directory: "ProjectImplementation[PrintPortal]/API"
