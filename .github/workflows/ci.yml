@@ -3,9 +3,12 @@ name: PrintPortal CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   test:
@@ -19,6 +22,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: "ProjectImplementation[PrintPortal]/API/package-lock.json"
+
+      - name: Check project structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Repository files:"
+          ls -la
+          echo "API directory:"
+          ls -la "ProjectImplementation[PrintPortal]/API"
 
       - name: Install API dependencies
         working-directory: "ProjectImplementation[PrintPortal]/API"
