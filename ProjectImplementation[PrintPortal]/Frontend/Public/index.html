@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Print Requests — Capital Community Print</title>
+  <link rel="stylesheet" href="./Assets/CSS/Stylesheet.css" />
+</head>
+<body data-page="requests">
+
+  <header class="site-header" id="site-nav"></header>
+
+  <main class="container">
+    <p class="message" id="message" hidden></p>
+
+    <!-- LIST: view requests + find outstanding work -->
+    <section class="animate" id="list-view" hidden>
+      <h1>Print requests</h1>
+
+      <details class="help" id="list-help" open>
+        <summary>How to use this page</summary>
+        <ol>
+          <li><strong>Pick an account</strong> with <em>Signed in as</em> at the top. Customers only see their own requests; the coordinator sees everyone's.</li>
+          <li><strong>Filter</strong> by status, category or priority to find outstanding work. The list updates straight away.</li>
+          <li><strong>Open a request</strong> by clicking its ID to see its details and status history.</li>
+          <li data-role="Customer"><strong>Need something printed?</strong> Choose <em>New request</em> in the menu.</li>
+          <li>New here? Choose <strong>Take the tour</strong> in the menu for a guided walkthrough.</li>
+        </ol>
+      </details>
+
+      <form class="filters" id="filter-form">
+        <label>Status <select name="status"></select></label>
+        <label>Category <select name="category"></select></label>
+        <label>Priority <select name="priority"></select></label>
+      </form>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Campaign</th><th>Category</th><th>Priority</th><th>Status</th><th>Assignee</th><th>Updated</th></tr>
+          </thead>
+          <tbody id="request-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DETAILS: one request, its history, and coordinator actions -->
+    <section class="animate" id="details-view" hidden>
+      <a href="index.html">&larr; All requests</a>
+      <h1 id="detail-title">Request</h1>
+
+      <details class="help" id="details-help" open>
+        <summary>How to use this page</summary>
+        <ol>
+          <li>The <strong>details</strong> card shows what was requested, its current status and who is working on it.</li>
+          <li data-role="Coordinator"><strong>Assign</strong> a staff member, then use <em>Move to&hellip;</em> to advance one step at a time: Submitted &rarr; Assigned &rarr; In Progress &rarr; Completed. A request needs an assignee before it can be Assigned.</li>
+          <li data-role="Customer">Only the coordinator can assign work or change the status. Check back here to follow progress.</li>
+          <li>The <strong>status history</strong> lists every change, when it happened and which account made it.</li>
+        </ol>
+      </details>
+
+      <dl class="fields" id="detail-fields"></dl>
+
+      <form class="panel" id="update-form" data-role="Coordinator">
+        <h2>Assign and update</h2>
+        <label>Assignee <select name="assignee"></select></label>
+        <div class="actions">
+          <button type="submit" class="ghost" value="assign">Save assignee</button>
+          <button type="submit" value="advance" id="advance-button">Move to next status</button>
+        </div>
+      </form>
+
+      <h2>Status history</h2>
+      <div class="table-wrap" id="history-wrap">
+        <table>
+          <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th></tr></thead>
+          <tbody id="history-rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" id="site-footer"></footer>
+
+  <script type="module" src="./Assets/JS/App.js"></script>
+</body>
+</html>

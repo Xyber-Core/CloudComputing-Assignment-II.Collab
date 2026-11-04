@@ -1,0 +1,11 @@
+{
+  "users": [
+    { "id": "customer-a", "name": "Customer A", "role": "Customer" },
+    { "id": "customer-b", "name": "Customer B", "role": "Customer" },
+    { "id": "coordinator", "name": "Coordinator", "role": "Coordinator" }
+  ],
+  "categories": ["Posters", "Flyers", "Booklets"],
+  "priorities": ["Low", "Normal", "High"],
+  "statuses": ["Submitted", "Assigned", "In Progress", "Completed"],
+  "staff": ["Aroha Ngata", "Sam Patel", "Leilani Fono"]
+}

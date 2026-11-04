@@ -5,7 +5,7 @@ export async function initXyberOverlay() {
 ══════════════════════════════════════════════════════ */
   const CONFIG = {
     badge: {
-      image: './Public/Assets/Images/Xyber.webp',
+      image: './Assets/Images/Xyber.webp',
       label: 'xybercore',
       version: 'v1.0',
     },
@@ -84,8 +84,8 @@ export async function initXyberOverlay() {
           {
             name: 'Riker Hoch',
             role: 'Front-End & Integration Lead',
-            badge: 'Developer',
-            logo: './Public/Assets/Images/riker.webp',
+            badge: 'Frontend Developer',
+            logo: './Assets/Images/riker.webp',
             color: 'rgba(124,77,255,.18)',
             description: 'Leads front-end development, website architecture, responsive layouts, JavaScript interactions and integration.',
             socials: [
@@ -110,7 +110,7 @@ export async function initXyberOverlay() {
             name: 'Shatha Abid Ali',
             role: 'Azure Infrastructure & Database',
             badge: 'Developer',
-            logo: '/SRC/Assets/Images/SiteIcons/Profile.webp',
+            logo: './Assets/Images/riker.webp',
             color: 'rgba(0,229,255,.18)',
             description: 'Responsible for Azure infrastructure, cloud deployment and database implementation.',
           },
@@ -118,15 +118,15 @@ export async function initXyberOverlay() {
             name: 'Fatimah Almukhtar',
             role: 'Requirements & Testing',
             badge: 'Developer',
-            logo: '/SRC/Assets/Images/SiteIcons/Profile.webp',
+            logo: './Assets/Images/riker.webp',
             color: 'rgba(0,229,160,.18)',
             description: 'Responsible for requirements, testing, monitoring and project evidence.',
           },
           {
             name: 'Caleb Lambert',
             role: 'API & Data Development',
-            badge: 'Developer',
-            logo: './Public/Assets/Images/caleb.webp',
+            badge: 'API Developer',
+            logo: './Assets/Images/caleb.webp',
             color: 'rgba(255,180,80,.18)',
             description: 'Responsible for API development, data handling and backend implementation.',
             socials: [
@@ -146,7 +146,7 @@ export async function initXyberOverlay() {
             name: 'Liang Wang',
             role: 'Course Lecturer / Supervisor',
             badge: 'Academic',
-            logo: '/SRC/Assets/Images/SiteIcons/Profile.webp',
+            logo: './Assets/Images/riker.webp',
             color: 'rgba(80,120,255,.18)',
             description: 'Academic supervisor overseeing project requirements, evaluation criteria and guidance.',
           },

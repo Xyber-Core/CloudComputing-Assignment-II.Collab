@@ -14,7 +14,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve the frontend HTML, CSS and JavaScript
-const frontendPath = path.join(__dirname, '../../Frontend');
+const frontendPath = path.join(__dirname, '../../Frontend/Public');
 
 app.use(express.static(frontendPath));
 
