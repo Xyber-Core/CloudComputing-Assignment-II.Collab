@@ -80,11 +80,7 @@ function setupUserPicker() {
 async function api(path, options = {}) {
   const res = await fetch(path, {
     ...options,
-    headers: {
-  "Content-Type": "application/json",
-  ...options.headers,
-  "X-User-Id": currentUser().id
-},
+    headers: { "Content-Type": "application/json", "X-User-Id": currentUser().id },
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || `Request failed (${res.status}).`);
