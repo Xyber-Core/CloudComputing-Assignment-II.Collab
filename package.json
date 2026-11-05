@@ -5,7 +5,7 @@
   "description": "PrintPortal API",
   "main": "server.js",
   "scripts": {
-    "start": "node ProjectImplementation[PrintPortal]/API/server.js",
+    "start": "node ProjectImplementationPrintPortal/API/server.js",
     "test": "node --test"
   },
   "dependencies": {
