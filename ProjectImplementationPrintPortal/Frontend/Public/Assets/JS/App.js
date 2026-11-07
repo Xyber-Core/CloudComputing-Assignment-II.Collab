@@ -82,34 +82,8 @@ const USER_KEY = 'printportal-user';
 const TOUR_KEY = 'printportal-tour-seen';
 
 /* ── Pure helpers (unit tested) ────────────────────────────── */
-function nextStatus(statuses, status) {
-  const i = statuses.indexOf(status);
-  return i >= 0 && i < statuses.length - 1 ? statuses[i + 1] : null;
-}
 
-// Builds "?status=..&category=.." from a filter object, skipping blanks.
-function buildQuery(filters) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
-  const query = params.toString();
-  return query ? `?${query}` : '';
-}
 
-function escapeHtml(value) {
-  const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return String(value ?? '').replace(/[&<>"']/g, (c) => entities[c]);
-}
-
-// Places the tour card below the highlighted element, or above it when
-// there is no room, always kept inside the viewport.
-function tourCardPosition(target, card, viewport, gap = 12) {
-  const fitsBelow = target.bottom + gap + card.height <= viewport.height - gap;
-  const top = fitsBelow ? target.bottom + gap : target.top - gap - card.height;
-  return {
-    top: Math.min(Math.max(gap, top), viewport.height - card.height - gap),
-    left: Math.min(Math.max(gap, target.left), viewport.width - card.width - gap),
-  };
-}
 
 function formatDate(iso) {
   return new Date(iso).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' });
@@ -509,8 +483,7 @@ if (typeof module !== 'undefined' && module.exports) {
   };
 }
 
-// Export pure helper functions for Node.js unit tests.
-export { nextStatus, buildQuery, escapeHtml, tourCardPosition };
+
 
 // Only run browser code when a browser document exists.
 if (typeof document !== 'undefined') {
