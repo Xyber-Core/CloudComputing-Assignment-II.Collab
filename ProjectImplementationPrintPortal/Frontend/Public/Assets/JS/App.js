@@ -1,4 +1,17 @@
 import { initXyberOverlay } from './overlay.js';
+import {
+    nextStatus,
+    buildQuery,
+    escapeHtml,
+    tourCardPosition
+} from './Helpers.js';
+
+export {
+    nextStatus,
+    buildQuery,
+    escapeHtml,
+    tourCardPosition
+} from './Helpers.js';
 
 async function initPage() {
   initXyberOverlay();
