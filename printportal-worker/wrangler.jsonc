@@ -1,8 +1,16 @@
 {
-	"name": "printportal-worker",
-	"main": "src/index.ts",
-	"compatibility_date": "2026-09-01",
-	"observability": {
-		"enabled": true
-	}
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "printportal-worker",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-09-01",
+    "observability": {
+        "enabled": true
+    },
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "printportal-db",
+            "database_id": "e0674d8d-c739-4d2b-b4ea-a4d505aac793"
+        }
+    ]
 }
