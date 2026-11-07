@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node ProjectImplementationPrintPortal/API/server.js",
-    "test": "node --test"
+    "test": "node --test \"ProjectImplementationPrintPortal/API/Test/test.js\" \"ProjectImplementationPrintPortal/Frontend/Test/**/*.test.js\""
   },
   "dependencies": {
     "express": "^5.1.0"
