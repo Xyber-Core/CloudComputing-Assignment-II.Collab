@@ -1,5 +1,4 @@
 import { initXyberOverlay } from './overlay.js';
-const API_BASE = 'https://printportal-worker.rikerhoch.workers.dev';
 
 async function initPage() {
   initXyberOverlay();
@@ -10,6 +9,60 @@ async function initPage() {
    Loads the shared components and Data.json, then runs the view
    for the page's data-page attribute. All data comes from the API.
    ============================================================ */
+
+/* ── API environment configuration ───────────────────────── */
+
+const API_BASES = {
+  cloud: 'https://printportal-worker.rikerhoch.workers.dev',
+  local: 'http://localhost:3000',
+};
+
+const savedApiMode = localStorage.getItem('printportal-api-mode');
+
+let activeApiMode = API_BASES[savedApiMode] ? savedApiMode : 'cloud';
+
+let API_BASE = API_BASES[activeApiMode];
+
+function updateApiEnvironmentSelector() {
+  const selector = document.getElementById('api-environment-select');
+
+  if (selector) {
+    selector.value = activeApiMode;
+  }
+}
+
+// Expose the switcher for the dynamically loaded navigation.
+window.switchApiEnvironment = async function (mode) {
+  if (!API_BASES[mode] || mode === activeApiMode) return;
+
+  const previousMode = activeApiMode;
+
+  activeApiMode = mode;
+  API_BASE = API_BASES[mode];
+
+  localStorage.setItem('printportal-api-mode', mode);
+
+  updateApiEnvironmentSelector();
+
+  console.log(`PrintPortal API: ${activeApiMode}`);
+  console.log(`API endpoint: ${API_BASE}`);
+
+  try {
+    await refreshCurrentPageData();
+    showMessage(`Connected to ${mode === 'cloud' ? 'Cloudflare' : 'Local'} API.`);
+  } catch (error) {
+    console.error('API environment switch failed:', error);
+
+    // Restore the previous environment if the new one fails.
+    activeApiMode = previousMode;
+    API_BASE = API_BASES[previousMode];
+
+    localStorage.setItem('printportal-api-mode', previousMode);
+    updateApiEnvironmentSelector();
+
+    showMessage(`Could not load data from ${mode} API: ${error.message}`, true);
+  }
+};
 
 const DATA_URL = './Assets/JSON/Data.json';
 const USER_KEY = 'printportal-user';
@@ -297,6 +350,29 @@ async function loadList(form) {
   }
 }
 
+/* ── Refresh current page after API environment switch ─── */
+
+async function refreshCurrentPageData() {
+  const data = await (await fetch(DATA_URL)).json();
+
+  const page = document.body.dataset.page;
+
+  if (page === 'requests') {
+    const id = new URLSearchParams(location.search).get('id');
+
+    if (id) {
+      const request = await api(`/api/requests/${encodeURIComponent(id)}`);
+
+      renderDetails(request, data);
+    } else {
+      const form = document.getElementById('filter-form');
+      await loadList(form);
+    }
+  }
+
+  console.log(`Page data refreshed from ${activeApiMode} API.`);
+}
+
 /* ── Requests page: details, history, assign/update ────────── */
 async function initDetails(id, data) {
   tourName = 'details';
@@ -391,7 +467,19 @@ async function init() {
   const data = await (await fetch(DATA_URL)).json();
   users = data.users;
   await Promise.all([loadComponent('site-nav', 'Assets/Components/Navigation.html'), loadComponent('site-footer', 'Assets/Components/Footer.html')]);
+
   setupUserPicker();
+
+  // Initialise API environment selector after navigation loads.
+  const apiSelector = document.getElementById('api-environment-select');
+
+  if (apiSelector) {
+    apiSelector.value = activeApiMode;
+
+    apiSelector.addEventListener('change', (event) => {
+      window.switchApiEnvironment(event.target.value);
+    });
+  }
   document.getElementById('tour-button').addEventListener('click', () => startTour(tourName));
 
   const page = document.body.dataset.page;
