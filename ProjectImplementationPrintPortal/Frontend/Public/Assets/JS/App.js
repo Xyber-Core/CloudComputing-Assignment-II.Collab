@@ -1,4 +1,5 @@
 import { initXyberOverlay } from './overlay.js';
+const API_BASE = 'https://printportal-worker.rikerhoch.workers.dev';
 
 async function initPage() {
   initXyberOverlay();
@@ -10,7 +11,7 @@ async function initPage() {
    for the page's data-page attribute. All data comes from the API.
    ============================================================ */
 
-const DATA_URL = 'Assets/JSON/Data.json';
+const DATA_URL = './Assets/JSON/Data.json';
 const USER_KEY = 'printportal-user';
 const TOUR_KEY = 'printportal-tour-seen';
 
@@ -82,19 +83,37 @@ function setupUserPicker() {
 
 /* ── API ───────────────────────────────────────────────────── */
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', 'X-User-Id': currentUser().id },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-User-Id': currentUser().id,
+      ...options.headers,
+    },
   });
+
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || `Request failed (${res.status}).`);
+
+  if (!res.ok) {
+    throw new Error(body.error || `Request failed (${res.status}).`);
+  }
+
   return body;
 }
 
 /* ── Shared UI ─────────────────────────────────────────────── */
 async function loadComponent(id, url) {
   const el = document.getElementById(id);
-  if (el) el.innerHTML = await (await fetch(url)).text();
+
+  if (el) {
+    const response = await fetch(`/${url.replace(/^\/+/, '')}`);
+
+    if (!response.ok) {
+      throw new Error(`Failed to load component: ${url}`);
+    }
+
+    el.innerHTML = await response.text();
+  }
 }
 
 function showMessage(text, isError = false) {
