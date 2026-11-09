@@ -1,1 +1,7 @@
+# Force SQL, JSON, and configurations to show up in the color bar
 *.json linguist-detectable=true
+*.sql linguist-detectable=true
+*.xml linguist-detectable=true
+*.yaml linguist-detectable=true
+*.yml linguist-detectable=true
+*.ini linguist-detectable=true
