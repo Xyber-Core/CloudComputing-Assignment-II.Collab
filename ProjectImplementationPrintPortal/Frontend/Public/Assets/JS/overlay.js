@@ -1,77 +1,87 @@
 export async function initXyberOverlay() {
+  // Avoid duplicate overlays if multiple controls invoke initialization.
+  if (document.getElementById('xc-trigger')) return;
   /* ══════════════════════════════════════════════════════
   Configuration - [Json structure to hold all content for 
   the overlay.]
 ══════════════════════════════════════════════════════ */
+  // Project details and labels are kept here to make future edits straightforward.
   const CONFIG = {
     badge: {
       image: './Assets/Images/Xyber.webp',
-      label: 'xybercore',
-      version: 'v1.0',
+      label: 'XYBERCORE / PRINT',
+      version: 'BACT7602',
     },
 
     credits: [
       {
-        category: 'Education',
+        category: 'Academic context',
         items: [
           {
             name: 'Whitecliffe',
-            role: 'Academic institution — This is the company behind the educational insight for this project',
-            badge: 'Institution',
+            role: 'BACT7602 Assessment 2 · T1 Web App Modernisation. The fictional Wellington client and assessment brief provide the scenario.',
+            badge: 'Education',
             logo: 'https://www.google.com/s2/favicons?domain=whitecliffe.ac.nz&sz=64',
-            color: 'rgba(0,120,212,.18)',
+            color: 'rgba(91, 180, 252, .16)',
           },
         ],
       },
       {
-        category: 'Tooling',
+        category: 'Application and delivery',
         items: [
           {
+            name: 'HTML, CSS & JavaScript',
+            role: 'Responsive interface, accessible controls, animated cards and dynamically loaded navigation and footer.',
+            badge: 'Frontend',
+            emoji: '✦',
+            color: 'rgba(74, 211, 252, .15)',
+          },
+          {
+            name: 'Node.js & Express',
+            role: 'Local REST API, request validation and coordinator workflows for development and testing.',
+            badge: 'Local API',
+            emoji: '⬡',
+            color: 'rgba(113, 231, 179, .14)',
+          },
+          {
+            name: 'Cloudflare Pages, Workers & D1',
+            role: 'Current demonstration frontend, API and database. Cloudflare D1 does not establish New Zealand-only residency.',
+            badge: 'Cloud demo',
+            logo: 'https://www.google.com/s2/favicons?domain=cloudflare.com&sz=64',
+            color: 'rgba(249, 153, 77, .14)',
+          },
+          {
+            name: 'TypeScript, Vitest & GitHub Actions',
+            role: 'Worker implementation, automated tests and source-control workflows.',
+            badge: 'Testing / CI',
+            emoji: '✓',
+            color: 'rgba(168, 153, 255, .15)',
+          },
+          {
             name: 'Visual Studio Code',
-            role: 'Primary development environment used for HTML, CSS and JavaScript implementation',
+            role: 'Development environment for editing and reviewing the frontend and backend code.',
             badge: 'Editor',
             logo: 'https://www.google.com/s2/favicons?domain=code.visualstudio.com&sz=64',
-            color: 'rgba(0,122,204,.18)',
+            color: 'rgba(44, 141, 244, .15)',
           },
+        ],
+      },
+      {
+        category: 'Development assistance',
+        items: [
           {
-            name: 'Prettier',
-            role: 'Code formatting and consistency across JavaScript, CSS and HTML files',
-            badge: 'Formatter',
-            logo: 'https://www.google.com/s2/favicons?domain=prettier.io&sz=64',
-            color: 'rgba(242,153,74,.18)',
-          },
-          {
-            name: 'Azure',
-            role: 'Used for integrating a basic cloud network for receiving HTTP requests',
-            badge: 'Cloud Service',
-            logo: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTk7fEKP6OFQymtl6J1wo5g6NUJJ6NkeOnKpy6TdymQBg&s=10',
-            color: 'rgba(16,163,127,.18)',
+            name: 'ChatGPT',
+            role: 'Assistance with troubleshooting, planning, code suggestions and documentation; use is disclosed in the assessment AI declaration.',
+            badge: 'AI assistance',
+            logo: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',
+            color: 'rgba(45, 199, 159, .14)',
           },
           {
             name: 'Claude',
-            role: 'Assisted with brainstorming, debugging and code refinement during development',
-            badge: 'AI Assistant',
+            role: 'Listed as a brainstorming, debugging and refinement aid in the project credits; acknowledge actual use in the AI declaration.',
+            badge: 'AI assistance',
             logo: 'https://www.google.com/s2/favicons?domain=claude.ai&sz=64',
-            color: 'rgba(217,119,6,.18)',
-          },
-          {
-            name: 'ChatGPT',
-            role: 'Used for troubleshooting, feature planning, documentation and development support',
-            badge: 'AI Assistant',
-            logo: 'https://www.google.com/s2/favicons?domain=openai.com&sz=64',
-            color: 'rgba(16,163,127,.18)',
-          },
-        ],
-      },
-      {
-        category: 'Fonts',
-        items: [
-          {
-            name: 'Google Fonts',
-            role: 'Cormorant Garamond (headings) & Outfit (body) via CDN',
-            badge: 'Free / OFL',
-            logo: 'https://www.google.com/s2/favicons?domain=fonts.google.com&sz=64',
-            color: 'rgba(66,133,244,.15)',
+            color: 'rgba(215, 141, 102, .14)',
           },
         ],
       },
@@ -82,73 +92,38 @@ export async function initXyberOverlay() {
         section: 'Developers',
         items: [
           {
-            name: 'Riker Hoch',
-            role: 'Front-End & Integration Lead',
-            badge: 'Frontend Developer',
-            logo: './Assets/Images/riker.webp',
-            color: 'rgba(124,77,255,.18)',
-            description: 'Leads front-end development, website architecture, responsive layouts, JavaScript interactions and integration.',
-            socials: [
-              {
-                name: 'GitHub',
-                username: 'RikerHoch',
-                url: 'https://github.com/RikerHoch',
-              },
-              {
-                name: 'LinkedIn',
-                username: 'Riker Hoch',
-                url: 'https://www.linkedin.com/in/riker-hoch-4219b22aa/',
-              },
-              {
-                name: 'Discord',
-                username: 'XyberCore',
-                url: 'https://discord.gg/brkbSE9QzY',
-              },
-            ],
-          },
-          {
             name: 'Shatha Abid Ali',
-            role: 'Azure Infrastructure & Database',
-            badge: 'Developer',
-            logo: './Assets/Images/riker.webp',
-            color: 'rgba(0,229,255,.18)',
-            description: 'Responsible for Azure infrastructure, cloud deployment and database implementation.',
+            role: 'Coordination & Cloud Infrastructure',
+            badge: 'Cloud / coordination',
+            color: 'rgba(74, 211, 252, .18)',
+            description: 'Coordinates team delivery and leads the planned cloud infrastructure work.',
           },
           {
-            name: 'Fatimah Almukhtar',
-            role: 'Requirements & Testing',
-            badge: 'Developer',
+            name: 'Riker Hoch',
+            role: 'Frontend & Git Collaboration',
+            badge: 'Frontend',
             logo: './Assets/Images/riker.webp',
-            color: 'rgba(0,229,160,.18)',
-            description: 'Responsible for requirements, testing, monitoring and project evidence.',
+            color: 'rgba(168, 153, 255, .18)',
+            description: 'Develops the portal interface, responsive navigation, interaction design and Git collaboration workflow.',
+            socials: [
+              { name: 'GitHub', username: 'RikerHoch', url: 'https://github.com/RikerHoch' },
+              { name: 'LinkedIn', username: 'Riker Hoch', url: 'https://www.linkedin.com/in/riker-hoch-4219b22aa/' },
+            ],
           },
           {
             name: 'Caleb Lambert',
-            role: 'API & Data Development',
-            badge: 'API Developer',
+            role: 'API, Database & Delivery',
+            badge: 'Backend',
             logo: './Assets/Images/caleb.webp',
-            color: 'rgba(255,180,80,.18)',
-            description: 'Responsible for API development, data handling and backend implementation.',
-            socials: [
-              {
-                name: 'GitHub',
-                username: 'your-username',
-                url: 'https://github.com/your-username',
-              },
-            ],
+            color: 'rgba(255, 180, 128, .18)',
+            description: 'Works on the request API, data handling, persistence and application delivery.',
           },
-        ],
-      },
-      {
-        section: 'Lecturer',
-        items: [
           {
-            name: 'Liang Wang',
-            role: 'Course Lecturer / Supervisor',
-            badge: 'Academic',
-            logo: './Assets/Images/riker.webp',
-            color: 'rgba(80,120,255,.18)',
-            description: 'Academic supervisor overseeing project requirements, evaluation criteria and guidance.',
+            name: 'Fatimah Almukhtar',
+            role: 'Quality & Operations',
+            badge: 'Testing / operations',
+            color: 'rgba(243, 116, 231, .16)',
+            description: 'Focuses on quality checks, testing, monitoring and assessment operations evidence.',
           },
         ],
       },
@@ -156,73 +131,34 @@ export async function initXyberOverlay() {
 
     features: [
       {
-        section: 'Core Mechanics',
-        color: 'green',
-        items: [
-          {
-            title: 'Fake Case Management',
-            desc: 'Simulated support cases with generated case numbers, statuses and updates. For a successful case use - [case number: 5576, Access key: survivor]',
-          },
-          {
-            title: 'Primary Search',
-            desc: 'Search through everything on all pages related to any searchable topic.',
-          },
-          {
-            title: 'Hero Mosaic Search',
-            desc: 'Interactive search system that directs users to support content and help resources.',
-          },
-          {
-            title: 'Privacy Choices',
-            desc: 'Simulated privacy preferences panel allowing users to manage tracking settings.',
-          },
-          {
-            title: 'Language Translation',
-            desc: 'A simple language translation system to demonstrate simple language function.',
-          },
-        ],
-      },
-
-      {
-        section: 'Support Mechanics',
+        section: 'Five core workflows',
         color: 'cyan',
         items: [
-          {
-            title: 'Modals',
-            desc: 'Dynamic modal system providing troubleshooting information.',
-          },
-          {
-            title: 'SelectMenus',
-            desc: 'Interactive dropdown menus to make the design more accessible for mobile devices',
-          },
+          { key: '01', title: 'Submit a print request', desc: 'Customers enter a campaign reference, print category, description and priority.' },
+          { key: '02', title: 'View requests', desc: 'Customers view their own jobs; coordinators can view the whole request queue and details.' },
+          { key: '03', title: 'Assign and update', desc: 'Coordinators assign a named staff member and advance jobs through the permitted sequence.' },
+          { key: '04', title: 'Find outstanding work', desc: 'Filter the queue by status, category and priority to focus on work that needs attention.' },
+          { key: '05', title: 'Review status history', desc: 'A timestamped activity trail shows status changes and the person responsible.' },
         ],
       },
-
       {
-        section: 'User Experience',
+        section: 'Coordinator review tools',
         color: 'purple',
         items: [
-          {
-            title: 'Responsive Design',
-            desc: 'Optimized layouts across desktop, tablet and mobile devices.',
-          },
-          {
-            title: 'Dynamic Components',
-            desc: 'Reusable navigation, footer and page systems loaded across the website.',
-          },
-          {
-            title: 'XyberCore Overlay',
-            desc: 'Developer badge overlay displaying project information, credits and system details.',
-          },
+          { title: 'Reject a submitted request', desc: 'Record a reason when a newly submitted request cannot proceed; retain the decision in history.' },
+          { title: 'Archive completed work', desc: 'Remove a completed job from the active queue without erasing its record or audit trail.' },
         ],
       },
-    ],
-
-    pages: [
-      { file: 'Homepage', desc: 'Landing page — hero, featured drinks, brand story', color: 'green' },
-      { file: 'Platform Support', desc: 'Full drink menu with category filtering', color: 'purple' },
-      { file: 'My Cases', desc: 'Interactive drink recommendation quiz', color: 'cyan' },
-      { file: 'Game Support', desc: 'Cart review & order submission', color: 'cyan' },
-      { file: 'Forum Support', desc: 'Coming soon fallback for unbuilt pages', color: 'green' },
+      {
+        section: 'Interface experience',
+        color: 'green',
+        items: [
+          { title: 'Desktop and mobile', desc: 'Responsive request cards, a mobile navigation drawer and touch-friendly dialogs.' },
+          { title: 'Blue × magenta design', desc: 'Frosted-glass surfaces, subtle neon accents, smooth hover states and loading indicators.' },
+          { title: 'Local / cloud API selector', desc: 'Switch between the Express development API and the demonstration Cloudflare Worker.' },
+          { title: 'Playful typography toggle', desc: 'A just-for-fun font switch changes the interface typeface without changing the language.' },
+        ],
+      },
     ],
   };
   /* ════════ END CONFIG ════════ */
@@ -238,6 +174,7 @@ export async function initXyberOverlay() {
     bottom: 24px; left: 24px;
     z-index: 99998;
     width: 52px; height: 52px;
+    border: 0; padding: 0;
     border-radius: 50%;
     cursor: pointer;
     background: #08080e;
@@ -474,8 +411,13 @@ export async function initXyberOverlay() {
   .xc-mtab:hover:not(.active) { color: rgba(224,223,248,.6); }
 
   /* ── Panes ── */
-  .xc-mpane { display:none; position:relative; z-index:1; flex:1; overflow:hidden; }
+  .xc-mpane { display:none; position:relative; z-index:1; flex:1; min-height:0; overflow:hidden; }
   .xc-mpane.active { display:flex; flex-direction:column; }
+  .xc-mscroll {
+    flex:1; min-height:0; padding:12px 16px 18px;
+    overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
+    scrollbar-width:thin; scrollbar-color:var(--xc-accent) transparent;
+  }
 
 
 /* ── Premium Developer Contact Button ── */
@@ -963,6 +905,113 @@ export async function initXyberOverlay() {
   .xc-mfoot-sig strong { color:var(--xc-accent); font-weight:800; }
   .xc-mstatus { display:flex; align-items:center; gap:6px; font-size:.61rem; color:var(--xc-good); font-weight:700; letter-spacing:.05em; }
   .xc-sdot { width:7px; height:7px; border-radius:50%; background:var(--xc-good); box-shadow:0 0 8px var(--xc-good); animation:xc-blink 2s infinite; }
+
+  /* Wellington printing portal: expanded, responsive information layout */
+  #xc-backdrop { padding: 12px; }
+  #xc-modal {
+    width: min(650px, calc(100vw - 24px));
+    max-height: min(88dvh, 760px);
+    min-height: min(535px, calc(100dvh - 24px));
+    border: 1px solid rgba(98, 221, 255, .19);
+    background: radial-gradient(circle at top right, rgba(105,75,177,.10),transparent 46%), #0a1023;
+  }
+  #xc-modal .xc-mhead-inner { padding: 21px 23px 18px; }
+  #xc-modal .xc-mtabs { padding: 0 12px; }
+  #xc-modal .xc-mtab { padding: 13px 5px; font-size: .67rem; }
+  #xc-modal .xc-mscroll { padding: 8px 22px 22px; }
+  #xc-modal .xc-sec { margin: 20px 0 11px; font-size: .63rem; }
+  #xc-modal .xc-card, #xc-modal .xc-feat, #xc-modal .xc-devcard {
+    min-width: 0; margin-bottom: 0;
+    background: rgba(22, 34, 61, .62);
+    border: 1px solid rgba(135, 169, 234, .12);
+    border-radius: 12px;
+  }
+  #xc-modal .xc-card-name, #xc-modal .xc-devcard-name {
+    white-space: normal; overflow: visible; text-overflow: initial;
+    font-size: .78rem; line-height: 1.35;
+  }
+  #xc-modal .xc-card-desc, #xc-modal .xc-devcard-desc, #xc-modal .xc-fdesc {
+    font-size: .69rem; line-height: 1.55; color: #a4b4d1;
+  }
+  #xc-modal .xc-ftitle { font-size: .76rem; line-height: 1.4; }
+  #xc-modal .xc-credit-grid, #xc-modal .xc-feature-grid, #xc-modal .xc-team-grid {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px;
+  }
+  #xc-modal .xc-credit-grid .xc-card { align-items: flex-start; padding: 13px; }
+  #xc-modal .xc-feature-grid .xc-feat { align-items: flex-start; padding: 13px; }
+  #xc-modal .xc-team-grid .xc-devcard { align-items: flex-start; padding: 14px; }
+  #xc-modal .xc-fdot { margin-top: 6px; }
+  #xc-modal .xc-fkey { margin-left: 2px; }
+  #xc-modal .xc-badge { margin-top: 8px; }
+  #xc-modal .xc-devcard-role { color: #d2a8ff; font-size: .67rem; }
+  #xc-modal .xc-dev-social-btn { width: 100%; margin-top: 10px; }
+  #xc-modal .xc-mfoot { padding: 13px 22px; gap: 10px; }
+  #xc-modal .xc-head-sub { font-size: .67rem; color: #a6b9d7; }
+  #xc-modal .xc-head-name { font-size: .94rem; }
+  #xc-modal .xc-head-pill.live { color: #7ae2fd; border-color: rgba(82,221,255,.35); background:rgba(82,221,255,.08); }
+  #xc-modal .xc-head-pill.live::before { background: #52ddff; box-shadow: 0 0 6px #52ddff; }
+  #xc-modal .xc-mstatus { color: #9caace; }
+  #xc-modal .xc-sdot { animation:none; box-shadow:none; background: #9caace; }
+
+  .xc-about-intro {
+    display:flex; align-items:flex-start; gap:15px; padding:19px;
+    background: linear-gradient(130deg, rgba(77, 210, 255, .10), rgba(208, 103, 244, .09));
+    border: 1px solid rgba(115, 182, 251, .20); border-radius: 15px;
+  }
+  .xc-about-icon { display:grid; place-items:center; flex:0 0 44px; height:44px; font-size:24px;
+    border-radius:12px; color:#a0f2ff; background:rgba(82,221,255,.13); }
+  .xc-overline {font-size:.61rem; letter-spacing:.12em; text-transform:uppercase; color:#79def7; font-weight:800;}
+  .xc-about-intro h3 { margin:7px 0; font-size:1.09rem; color:#f2f5ff; line-height:1.25; }
+  .xc-about-intro p { margin:0; color:#b4c1d8; font-size:.73rem; line-height:1.6; }
+  .xc-metrics {display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:11px 0;}
+  .xc-metrics div {border:1px solid rgba(145,180,244,.12); background:rgba(255,255,255,.03); border-radius:12px; padding:12px 7px; text-align:center;}
+  .xc-metrics strong {display:block; color:#8ae8ff; font-size:1.25rem; line-height:1.15; letter-spacing:-.04em;}
+  .xc-metrics span {display:block; margin-top:5px; color:#98a8c6; font-size:.62rem;}
+  .xc-about-grid {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;}
+  .xc-info-tile {padding:14px; border:1px solid rgba(144,180,245,.13); background:rgba(21,32,59,.68); border-radius:12px;}
+  .xc-tile-icon {display:inline-grid; place-items:center; width:28px; height:28px; background:rgba(164,151,255,.15); color:#dbadff; border-radius:8px;}
+  .xc-info-tile h4 {margin:9px 0 5px; color:#f1f4ff; font-size:.79rem;}
+  .xc-info-tile p {color:#a4b4d1; margin:0; font-size:.68rem; line-height:1.5;}
+  .xc-flow {display:flex; flex-wrap:wrap; gap:5px; align-items:center;}
+  .xc-flow span {padding:7px 9px; background:rgba(74,211,252,.09); border:1px solid rgba(74,211,252,.19);
+    border-radius:50px; color:#c4f3ff; font-size:.65rem; font-weight:700;}
+  .xc-flow b {color:#b882e5; font-size:.8rem;}
+  .xc-about-note {font-size:.67rem; line-height:1.55; color:#aebdd8; margin:10px 0 0;}
+  .xc-fact-list {display:grid; gap:0; border:1px solid rgba(154,178,242,.12); border-radius:11px; overflow:hidden;}
+  .xc-fact-list > div {display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:10px 12px; background:rgba(21,32,57,.52);}
+  .xc-fact-list > div + div {border-top:1px solid rgba(154,178,242,.10);}
+  .xc-fact-list span {flex-shrink:0; color:#93a5c9; font-size:.66rem;}
+  .xc-fact-list strong {color:#e2e9fa; font-size:.67rem; font-weight:650; text-align:right;}
+  .xc-notice {padding:13px 15px; margin-top:15px; background:rgba(250,188,113,.07); border:1px solid rgba(250,188,113,.20); border-radius:12px;}
+  .xc-notice strong {display:block; color:#ffdab0; font-size:.74rem;}
+  .xc-notice p {margin:5px 0 0; color:#b8b9c3; font-size:.67rem; line-height:1.6;}
+
+  @media (max-width: 520px) {
+    #xc-trigger { bottom: max(16px, env(safe-area-inset-bottom)); left: max(16px, env(safe-area-inset-left)); }
+    #xc-modal {width:calc(100vw - 18px); max-height:calc(100dvh - 18px); min-height:0;}
+    #xc-backdrop {padding:9px;}
+    #xc-modal .xc-mhead-inner {padding:15px 13px 14px; gap:10px;}
+    #xc-modal .xc-head-name {font-size:.8rem;}
+    #xc-modal .xc-head-sub {font-size:.57rem;}
+    #xc-modal .xc-mtab {font-size:.60rem; padding:11px 3px;}
+    #xc-modal .xc-mscroll {padding:8px 13px 18px;}
+    #xc-modal .xc-credit-grid, #xc-modal .xc-feature-grid, #xc-modal .xc-team-grid {grid-template-columns:1fr; gap:8px;}
+    .xc-about-intro {padding:15px; gap:10px;}
+    .xc-about-icon {flex-basis:36px; height:36px; font-size:20px;}
+    .xc-metrics {gap:5px;}
+    .xc-metrics div {padding:10px 3px;}
+    .xc-metrics strong {font-size:1.08rem;}
+    .xc-metrics span {font-size:.54rem;}
+    .xc-about-grid {grid-template-columns:1fr; gap:7px;}
+    .xc-fact-list > div {display:block; padding:10px 12px;}
+    .xc-fact-list strong {display:block; text-align:left; margin-top:4px;}
+    #xc-modal .xc-mfoot {padding:11px 13px;}
+    #xc-modal .xc-mstatus {display:none;}
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #xc-modal, #xc-modal *, #xc-modal *::before, #xc-modal *::after,
+    #xc-trigger, #xc-trigger::before {animation: none !important; transition: none !important;}
+  }
 `;
   document.head.appendChild(style);
 
@@ -974,6 +1023,7 @@ export async function initXyberOverlay() {
       .map(
         (g) => `
     <div class="xc-sec">${g.category}</div>
+    <div class="xc-credit-grid">
     ${g.items
       .map(
         (c) => `
@@ -989,6 +1039,7 @@ export async function initXyberOverlay() {
       </div>`,
       )
       .join('')}
+    </div>
   `,
       )
       .join('');
@@ -999,6 +1050,7 @@ export async function initXyberOverlay() {
       .map(
         (g) => `
     <div class="xc-sec">${g.section}</div>
+    <div class="xc-feature-grid">
     ${g.items
       .map(
         (f) => `
@@ -1012,6 +1064,7 @@ export async function initXyberOverlay() {
       </div>`,
       )
       .join('')}
+    </div>
   `,
       )
       .join('');
@@ -1022,14 +1075,14 @@ export async function initXyberOverlay() {
       .map(
         (group) => `
         <div class="xc-sec">${group.section}</div>
-
+        <div class="xc-team-grid">
         ${group.items
           .map(
             (d) => `
             <div class="xc-devcard">
               <div class="xc-devcard-img" style="border:2px solid ${d.color.replace('rgba', 'rgba').replace('.18', '.6')}">
                 ${d.logo ? `<img src="${d.logo}" alt="${d.name}" loading="lazy" onerror="this.remove()"/>` : ''}
-                ${d.name.charAt(0)}
+                ${d.name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]).join('')}
               </div>
 
               <div class="xc-devcard-body">
@@ -1039,7 +1092,8 @@ export async function initXyberOverlay() {
                 <span class="xc-badge" style="margin-top:6px">${d.badge}</span>
 
             ${
-              group.section === 'Developers'
+              group.section === 'Developers' &&
+              (d.socials?.length || d.emails?.length || d.email || d.websites?.length)
                 ? `<button
                 type="button"
                 class="xc-dev-social-btn"
@@ -1056,6 +1110,7 @@ export async function initXyberOverlay() {
           `,
           )
           .join('')}
+        </div>
       `,
       )
       .join('');
@@ -1063,115 +1118,114 @@ export async function initXyberOverlay() {
 
   function buildAbout() {
     return `
-    <div class="xc-sec">Project</div>
-    <div class="xc-card">
-  <div class="xc-card-logo" style="background:rgba(41,98,255,.15)">🎮</div>
-  <div class="xc-card-body">
-    <div class="xc-card-name">EA Help Redesign Concept</div>
-    <div class="xc-card-desc">
-      A modern recreation of the EA Help experience built as an academic project.
-      The website demonstrates responsive design, interactive support systems,
-      simulated case management and dynamic content loading.
-    </div>
-  </div>
-</div>
+      <div class="xc-about-intro">
+        <div class="xc-about-icon" aria-hidden="true">▤</div>
+        <div>
+          <div class="xc-overline">Capital Community Print · Wellington, NZ</div>
+          <h3>Good ideas deserve great print.</h3>
+          <p>A fictional community printing business moving posters, flyers and booklets from email-and-spreadsheet tracking into a shared request portal.</p>
+        </div>
+      </div>
 
-<div class="xc-sec">Getting Started</div>
+      <div class="xc-metrics" aria-label="Project scope">
+        <div><strong>05</strong><span>Workflows</span></div>
+        <div><strong>02</strong><span>User roles</span></div>
+        <div><strong>03</strong><span>Data entities</span></div>
+        <div><strong>04</strong><span>Statuses</span></div>
+      </div>
 
-<div class="xc-feat">
-  <div class="xc-fdot green"></div>
-  <div class="xc-ftxt">
-    <div class="xc-ftitle">Search For Support</div>
-    <div class="xc-fdesc">
-      Use the homepage search section to quickly locate support dropdown located in the navigation bar to access the main project.
-    </div>
-  </div>
-</div>
+      <div class="xc-sec">Who uses the portal?</div>
+      <div class="xc-about-grid">
+        <section class="xc-info-tile">
+          <span class="xc-tile-icon" aria-hidden="true">◉</span>
+          <h4>Customer</h4>
+          <p>Submit a print request and see only their own requests and history.</p>
+        </section>
+        <section class="xc-info-tile">
+          <span class="xc-tile-icon" aria-hidden="true">⚙</span>
+          <h4>Coordinator</h4>
+          <p>See every request, assign staff, advance progress and review exceptions.</p>
+        </section>
+      </div>
 
-<div class="xc-feat">
-  <div class="xc-fdot cyan"></div>
-  <div class="xc-ftxt">
-    <div class="xc-ftitle">Browse Support Categories</div>
-    <div class="xc-fdesc">
-      Visit Game Support, Platform Support or Forum Support for detailed assistance.
-    </div>
-  </div>
-</div>
+      <div class="xc-sec">The production journey</div>
+      <div class="xc-flow" aria-label="Four sequential request statuses">
+        <span>Submitted</span><b aria-hidden="true">›</b>
+        <span>Assigned</span><b aria-hidden="true">›</b>
+        <span>In Progress</span><b aria-hidden="true">›</b>
+        <span>Completed</span>
+      </div>
+      <p class="xc-about-note">Rejection and archiving are separate audited decisions, not extra production statuses. Completed records remain viewable.</p>
 
-<div class="xc-feat">
-  <div class="xc-fdot purple"></div>
-  <div class="xc-ftxt">
-    <div class="xc-ftitle">Track Cases</div>
-    <div class="xc-fdesc">
-      Use the My Cases page to view simulated support cases and updates.
-    </div>
-  </div>
-</div>
-
-<div class="xc-feat">
-  <div class="xc-fdot green"></div>
-  <div class="xc-ftxt">
-    <div class="xc-ftitle">Community Discussions</div>
-    <div class="xc-fdesc">
-      Browse forum posts and community troubleshooting guides.
-    </div>
-  </div>
-</div>`;
+      <div class="xc-sec">Project and scope</div>
+      <div class="xc-fact-list">
+        <div><span>Assessment</span><strong>BACT7602 · Assessment 2 · T1 Web App Modernisation</strong></div>
+        <div><span>Print formats</span><strong>Posters · Flyers · Booklets</strong></div>
+        <div><span>Priorities</span><strong>Low · Normal · High</strong></div>
+        <div><span>Data model</span><strong>User · PrintRequest · StatusHistory</strong></div>
+      </div>
+      <div class="xc-notice">
+        <strong>Academic demonstration</strong>
+        <p>All accounts and records are synthetic. Payments, artwork uploads, quotations, stock and printer integration are out of scope. The current Cloudflare demo is not proof of NZ-only data residency or completed Azure managed-identity deployment.</p>
+      </div>
+    `;
   }
 
   /* ══════════════════════════════════════════════════════
   Inject DOM - [To inject the overlay trigger, backdrop and 
   modal elements into the page.]
 ══════════════════════════════════════════════════════ */
-  const trigger = document.createElement('div');
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.setAttribute('aria-label', 'Open site information and credits');
   trigger.id = 'xc-trigger';
   const tip = document.createElement('div');
   tip.id = 'xc-tip';
-  tip.textContent = 'Site Info & Credits';
-  trigger.innerHTML = `<img src="${CONFIG.badge.image}" alt="xc" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span class="xc-fallback">XC</span>`;
+  tip.textContent = 'Portal guide & credits';
+  trigger.innerHTML = `<img src="${CONFIG.badge.image}" alt="XyberCore" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/><span class="xc-fallback">XC</span>`;
   document.body.appendChild(trigger);
   document.body.appendChild(tip);
 
   const backdrop = document.createElement('div');
   backdrop.id = 'xc-backdrop';
   backdrop.innerHTML = `
-  <div id="xc-modal">
+  <div id="xc-modal" role="dialog" aria-modal="true" aria-label="Portal information and credits">
     <div class="xc-mhead">
       <div class="xc-mhead-bg"></div>
       <div class="xc-mhead-inner">
         <div class="xc-head-ring">
-          <img src="${CONFIG.badge.image}" alt="xc" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+          <img src="${CONFIG.badge.image}" alt="XyberCore" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
           <div class="xc-hfb">XC</div>
         </div>
         <div class="xc-head-text">
           <div class="xc-head-name">${CONFIG.badge.label}</div>
-          <div class="xc-head-sub">Wellington Community Printing Portal · Academic Project</div>
+          <div class="xc-head-sub">Wellington Community Printing Portal · Team project</div>
           <div class="xc-head-pills">
             <span class="xc-head-pill ver">${CONFIG.badge.version}</span>
-            <span class="xc-head-pill live">Live</span>
+            <span class="xc-head-pill live">Student demo</span>
           </div>
         </div>
-        <button class="xc-mbtn-close" id="xc-close">✕</button>
+        <button type="button" class="xc-mbtn-close" id="xc-close" aria-label="Close portal information">✕</button>
       </div>
       <div class="xc-mhead-border"></div>
     </div>
 
-    <div class="xc-mtabs">
-      <button class="xc-mtab active" data-tab="features">Features</button>
-      <button class="xc-mtab" data-tab="credits">Credits</button>
-      <button class="xc-mtab" data-tab="developers">Team</button>
-      <button class="xc-mtab" data-tab="about">About</button>
+    <div class="xc-mtabs" role="tablist" aria-label="Portal information sections">
+      <button type="button" role="tab" aria-selected="true" aria-controls="xc-pane-features" id="xc-tab-features" class="xc-mtab active" data-tab="features">Features</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="xc-pane-credits" id="xc-tab-credits" class="xc-mtab" data-tab="credits">Credits</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="xc-pane-developers" id="xc-tab-developers" class="xc-mtab" data-tab="developers">Team</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="xc-pane-about" id="xc-tab-about" class="xc-mtab" data-tab="about">About</button>
      
     </div>
 
-    <div class="xc-mpane active" id="xc-pane-features"><div class="xc-mscroll">${buildFeatures()}</div></div>
-    <div class="xc-mpane"        id="xc-pane-credits"><div class="xc-mscroll">${buildCredits()}</div></div>
-    <div class="xc-mpane"        id="xc-pane-developers"><div class="xc-mscroll">${buildDevelopers()}</div></div>
-    <div class="xc-mpane"        id="xc-pane-about"><div class="xc-mscroll">${buildAbout()}</div></div>
+    <div class="xc-mpane active" id="xc-pane-features" role="tabpanel" aria-labelledby="xc-tab-features"><div class="xc-mscroll">${buildFeatures()}</div></div>
+    <div class="xc-mpane"        id="xc-pane-credits" role="tabpanel" aria-labelledby="xc-tab-credits"><div class="xc-mscroll">${buildCredits()}</div></div>
+    <div class="xc-mpane"        id="xc-pane-developers" role="tabpanel" aria-labelledby="xc-tab-developers"><div class="xc-mscroll">${buildDevelopers()}</div></div>
+    <div class="xc-mpane"        id="xc-pane-about" role="tabpanel" aria-labelledby="xc-tab-about"><div class="xc-mscroll">${buildAbout()}</div></div>
     
     <div class="xc-mfoot">
-      <span class="xc-mfoot-sig">Built by <strong>Riker Hoch</strong></span>
-      <div class="xc-mstatus"><div class="xc-sdot"></div>All systems live</div>
+      <span class="xc-mfoot-sig">A <strong>BACT7602 student team</strong> project</span>
+      <div class="xc-mstatus"><div class="xc-sdot"></div>Synthetic data</div>
     </div>
   </div>`;
   document.body.appendChild(backdrop);
@@ -1258,7 +1312,7 @@ export async function initXyberOverlay() {
         return;
       }
 
-      if (!['https:', 'http:'].includes(safeUrl.protocol)) {
+      if (!['https:', 'http:', 'mailto:'].includes(safeUrl.protocol)) {
         return;
       }
 
@@ -1409,15 +1463,19 @@ export async function initXyberOverlay() {
   });
 
   let isOpen = false;
+  let previousOverflow = '';
   const open = () => {
+    previousOverflow = document.body.style.overflow;
     isOpen = true;
     backdrop.classList.add('open');
     document.body.style.overflow = 'hidden';
+    backdrop.querySelector('#xc-close')?.focus();
   };
   const close = () => {
     isOpen = false;
     backdrop.classList.remove('open');
-    document.body.style.overflow = '';
+    document.body.style.overflow = previousOverflow;
+    trigger.focus();
   };
 
   trigger.addEventListener('click', () => (isOpen ? close() : open()));
@@ -1426,14 +1484,36 @@ export async function initXyberOverlay() {
     if (e.target === backdrop) close();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen) close();
+    // Escape should dismiss the nested contact dialog before dismissing the credits overlay.
+    if (e.key === 'Escape' && isOpen && !socialModal.classList.contains('open')) close();
   });
 
-  backdrop.querySelectorAll('.xc-mtab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const t = tab.dataset.tab;
-      backdrop.querySelectorAll('.xc-mtab').forEach((x) => x.classList.toggle('active', x === tab));
-      backdrop.querySelectorAll('.xc-mpane').forEach((x) => x.classList.toggle('active', x.id === `xc-pane-${t}`));
+  const tabs = [...backdrop.querySelectorAll('.xc-mtab')];
+  function activateTab(tab, moveFocus = false) {
+    const targetPane = `xc-pane-${tab.dataset.tab}`;
+    tabs.forEach((item) => {
+      const selected = item === tab;
+      item.classList.toggle('active', selected);
+      item.setAttribute('aria-selected', String(selected));
+      item.tabIndex = selected ? 0 : -1;
+    });
+    backdrop.querySelectorAll('.xc-mpane').forEach((pane) => {
+      pane.classList.toggle('active', pane.id === targetPane);
+    });
+    if (moveFocus) tab.focus();
+  }
+  tabs.forEach((tab, index) => {
+    tab.tabIndex = index === 0 ? 0 : -1;
+    tab.addEventListener('click', () => activateTab(tab));
+    tab.addEventListener('keydown', (event) => {
+      let nextIndex;
+      if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+      else if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+      else if (event.key === 'Home') nextIndex = 0;
+      else if (event.key === 'End') nextIndex = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      activateTab(tabs[nextIndex], true);
     });
   });
 }

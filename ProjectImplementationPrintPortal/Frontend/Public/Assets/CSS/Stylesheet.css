@@ -1474,13 +1474,21 @@ td strong {
   display: grid;
   gap: 12px;
 }
-.mobile-menu-dialog nav a {
+.mobile-menu-dialog nav a,
+.mobile-menu-dialog nav button {
   display: block;
+  width: 100%;
+  border: 0;
   border-radius: 13px;
   padding: 13px 17px;
   color: var(--ink);
   background: #ffffff0b;
   font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+.mobile-menu-dialog nav button:hover {
+  background: #ffffff19;
 }
 .mobile-menu-dialog > p {
   position: absolute;

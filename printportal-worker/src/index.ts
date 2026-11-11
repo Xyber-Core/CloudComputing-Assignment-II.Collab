@@ -18,6 +18,11 @@ type PrintRequest = {
 	assignee: string | null;
 	createdAt: string;
 	updatedAt: string;
+	rejectedAt: string | null;
+	rejectedBy: string | null;
+	rejectionReason: string | null;
+	deletedAt: string | null;
+	deletedBy: string | null;
 };
 
 const CATEGORIES = ['Posters', 'Flyers', 'Booklets'];
@@ -37,7 +42,7 @@ const ALLOWED_ORIGINS = [
 
 function corsHeaders(request: Request): Headers {
 	const headers = new Headers({
-		'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+		'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
 		'Access-Control-Allow-Headers': 'Content-Type, X-User-Id',
 		'Access-Control-Max-Age': '86400',
 	});
@@ -102,6 +107,7 @@ function validateNewRequest(body: Record<string, unknown>) {
 }
 
 function validateUpdate(current: PrintRequest, body: Record<string, unknown>) {
+	if (current.rejectedAt || current.deletedAt) return { changes: {}, errors: ['Closed requests cannot be updated.'] };
 	const changes: Record<string, string> = {};
 	const errors: string[] = [];
 
@@ -188,12 +194,13 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 			['status', STATUSES],
 			['category', CATEGORIES],
 			['priority', PRIORITIES],
+			['view', ['active', 'rejected', 'archived', 'all']],
 		] as const) {
 			const value = url.searchParams.get(key);
 
 			if (!value) continue;
 
-			if (allowed.includes(value)) {
+			if ((allowed as readonly string[]).includes(value)) {
 				filters[key] = value;
 			} else {
 				errors.push(`Filter ${key} must be one of: ${allowed.join(', ')}.`);
@@ -205,6 +212,10 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 		}
 
 		let sql = 'SELECT * FROM PrintRequest WHERE 1 = 1';
+		const view = filters.view || 'active';
+		if (view === 'active') sql += ' AND deletedAt IS NULL AND rejectedAt IS NULL';
+		if (view === 'rejected') sql += ' AND rejectedAt IS NOT NULL AND deletedAt IS NULL';
+		if (view === 'archived') sql += ' AND deletedAt IS NOT NULL';
 		const values: string[] = [];
 
 		if (user.role === 'Customer') {
@@ -213,6 +224,7 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 		}
 
 		for (const [key, value] of Object.entries(filters)) {
+			if (key === 'view') continue;
 			sql += ` AND ${key} = ?`;
 			values.push(value);
 		}
@@ -242,7 +254,7 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 		}
 
 		const history = await env.DB.prepare(
-			'SELECT requestId, previousStatus, newStatus, actor, changedAt FROM StatusHistory WHERE requestId = ? ORDER BY id ASC',
+			'SELECT requestId, previousStatus, newStatus, actor, changedAt, eventType, note FROM StatusHistory WHERE requestId = ? ORDER BY id ASC',
 		)
 			.bind(id)
 			.all();
@@ -391,7 +403,7 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 		const updated = await getRequest(env, id);
 
 		const history = await env.DB.prepare(
-			'SELECT requestId, previousStatus, newStatus, actor, changedAt FROM StatusHistory WHERE requestId = ? ORDER BY id ASC',
+			'SELECT requestId, previousStatus, newStatus, actor, changedAt, eventType, note FROM StatusHistory WHERE requestId = ? ORDER BY id ASC',
 		)
 			.bind(id)
 			.all();
@@ -400,6 +412,47 @@ async function handleRequest(request: Request, env: PrintPortalEnv): Promise<Res
 			...updated,
 			history: history.results,
 		});
+	}
+
+	// Coordinator-only rejection: keep the four workflow statuses and add an audit event.
+	const rejectMatch = path.match(/^\/api\/requests\/(\d+)\/reject$/);
+	if (rejectMatch && request.method === 'POST') {
+		if (user.role !== 'Coordinator') return json(request, { error: 'Only coordinators can reject requests.' }, 403);
+		const id = Number(rejectMatch[1]);
+		const current = await getRequest(env, id);
+		if (!current) return json(request, { error: 'Request not found.' }, 404);
+		if (current.status !== 'Submitted' || current.rejectedAt || current.deletedAt)
+			return json(request, { error: 'Only active submitted requests can be rejected.' }, 409);
+		let body: Record<string, unknown>;
+		try { body = await request.json() as Record<string, unknown>; } catch { return json(request, { error: 'Invalid JSON body.' }, 400); }
+		const reason = text(body.reason);
+		if (reason.length < 5 || reason.length > 500) return json(request, { error: 'Provide a reason (5–500 characters).' }, 400);
+		const timestamp = new Date().toISOString();
+		await env.DB.batch([
+			env.DB.prepare('UPDATE PrintRequest SET rejectedAt = ?, rejectedBy = ?, rejectionReason = ?, updatedAt = ? WHERE id = ? AND rejectedAt IS NULL AND deletedAt IS NULL').bind(timestamp, user.id, reason, timestamp, id),
+			env.DB.prepare("INSERT INTO StatusHistory (requestId, previousStatus, newStatus, actor, changedAt, eventType, note) VALUES (?, 'Submitted', 'Submitted', ?, ?, 'Rejected', ?)").bind(id, user.id, timestamp, reason),
+		]);
+		const updated = await getRequest(env, id);
+		const history = await env.DB.prepare('SELECT requestId, previousStatus, newStatus, actor, changedAt, eventType, note FROM StatusHistory WHERE requestId = ? ORDER BY id ASC').bind(id).all();
+		return json(request, { ...updated, history: history.results });
+	}
+
+	// Soft deletion preserves completed records, ownership checks, and audit history.
+	if (match && request.method === 'DELETE') {
+		if (user.role !== 'Coordinator') return json(request, { error: 'Only coordinators can archive completed requests.' }, 403);
+		const id = Number(match[1]);
+		const current = await getRequest(env, id);
+		if (!current) return json(request, { error: 'Request not found.' }, 404);
+		if (current.status !== 'Completed' || current.deletedAt || current.rejectedAt)
+			return json(request, { error: 'Only completed requests can be deleted from the active queue.' }, 409);
+		const timestamp = new Date().toISOString();
+		await env.DB.batch([
+			env.DB.prepare('UPDATE PrintRequest SET deletedAt = ?, deletedBy = ?, updatedAt = ? WHERE id = ? AND deletedAt IS NULL').bind(timestamp, user.id, timestamp, id),
+			env.DB.prepare("INSERT INTO StatusHistory (requestId, previousStatus, newStatus, actor, changedAt, eventType, note) VALUES (?, 'Completed', 'Completed', ?, ?, 'Archived', 'Moved to archive')").bind(id, user.id, timestamp),
+		]);
+		const updated = await getRequest(env, id);
+		const history = await env.DB.prepare('SELECT requestId, previousStatus, newStatus, actor, changedAt, eventType, note FROM StatusHistory WHERE requestId = ? ORDER BY id ASC').bind(id).all();
+		return json(request, { ...updated, history: history.results });
 	}
 
 	return json(request, { error: 'Route not found.' }, 404);

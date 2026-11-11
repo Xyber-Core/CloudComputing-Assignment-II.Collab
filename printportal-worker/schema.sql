@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS PrintRequest (
         status IN ('Submitted', 'Assigned', 'In Progress', 'Completed')
     ),
     assignee TEXT,
+    rejectedAt TEXT,
+    rejectedBy TEXT,
+    rejectionReason TEXT,
+    deletedAt TEXT,
+    deletedBy TEXT,
     createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -36,6 +41,8 @@ CREATE TABLE IF NOT EXISTS StatusHistory (
     newStatus TEXT NOT NULL,
     actor TEXT NOT NULL,
     changedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    eventType TEXT NOT NULL DEFAULT 'Status',
+    note TEXT,
 
     FOREIGN KEY (requestId) REFERENCES PrintRequest(id)
 );

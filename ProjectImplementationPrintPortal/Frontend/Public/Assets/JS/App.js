@@ -167,18 +167,42 @@ function initNavigation() {
     const settings = $('#settings-menu');
     if (settings?.open && !settings.contains(event.target)) settings.open = false;
   });
-  // Heavy team credits overlay is intentionally lazy-loaded, never in the critical path.
-  $('#about-button').addEventListener('click', async () => {
+  // Load the credits overlay only when requested. Both navigation layouts can open it.
+  let overlayInitPromise;
+  async function openCreditsOverlay() {
+    // A native dialog renders in the browser's top layer, above ordinary z-index overlays.
+    // Close the mobile menu before showing the custom credits modal.
+    if (menu?.open) menu.close();
     try {
       if (!$('#xc-trigger')) {
-        const { initXyberOverlay } = await import('./overlay.js');
-        await initXyberOverlay();
+        overlayInitPromise ??= import('./overlay.js')
+          .then(({ initXyberOverlay }) => initXyberOverlay())
+          .catch((error) => {
+            overlayInitPromise = undefined;
+            throw error;
+          });
+        await overlayInitPromise;
       }
-      $('#xc-trigger')?.click();
+      const trigger = $('#xc-trigger');
+      if (!trigger) throw new Error('Credits overlay failed to create its trigger.');
+      trigger.click();
     } catch (error) {
+      console.error('Unable to initialise the credits overlay:', error);
       showMessage(`Credits unavailable: ${error.message}`, true);
     }
-  });
+  }
+  for (const selector of ['#about-button', '#mobile-about-button']) {
+    $(selector)?.addEventListener('click', openCreditsOverlay);
+  }
+
+  // Automatically initialize the floating badge on every page.
+  overlayInitPromise = import('./overlay.js')
+    .then(({ initXyberOverlay }) => initXyberOverlay())
+    .catch(error => {
+      overlayInitPromise = undefined;
+      console.error('Unable to initialise the floating credits badge:', error);
+    });
+
   setRoles();
 }
 function renderStatistics(requests) {
