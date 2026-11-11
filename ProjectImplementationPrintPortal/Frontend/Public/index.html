@@ -1,88 +1,186 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Print Requests — Capital Community Print</title>
-  <link rel="icon" type="image/png" href="./Assets/Images/riker.webp" />
-  <link rel="stylesheet" href="./Assets/CSS/Stylesheet.css" />
-</head>
-<body data-page="requests">
-
-  <header class="site-header" id="site-nav"></header>
-
-  <main class="container">
-    <p class="message" id="message" hidden></p>
-
-    <!-- LIST: view requests + find outstanding work -->
-    <section class="animate" id="list-view" hidden>
-      <h1>Print requests</h1>
-
-      <details class="help" id="list-help" open>
-        <summary>How to use this page</summary>
-        <ol>
-          <li><strong>Pick an account</strong> with <em>Signed in as</em> at the top. Customers only see their own requests; the coordinator sees everyone's.</li>
-          <li><strong>Filter</strong> by status, category or priority to find outstanding work. The list updates straight away.</li>
-          <li><strong>Open a request</strong> by clicking its ID to see its details and status history.</li>
-          <li data-role="Customer"><strong>Need something printed?</strong> Choose <em>New request</em> in the menu.</li>
-          <li>New here? Choose <strong>Take the tour</strong> in the menu for a guided walkthrough.</li>
-        </ol>
-      </details>
-
-      <form class="filters" id="filter-form">
-        <label>Status <select name="status"></select></label>
-        <label>Category <select name="category"></select></label>
-        <label>Priority <select name="priority"></select></label>
-      </form>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Campaign</th><th>Category</th><th>Priority</th><th>Status</th><th>Assignee</th><th>Updated</th></tr>
-          </thead>
-          <tbody id="request-rows"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- DETAILS: one request, its history, and coordinator actions -->
-    <section class="animate" id="details-view" hidden>
-      <a href="index.html">&larr; All requests</a>
-      <h1 id="detail-title">Request</h1>
-
-      <details class="help" id="details-help" open>
-        <summary>How to use this page</summary>
-        <ol>
-          <li>The <strong>details</strong> card shows what was requested, its current status and who is working on it.</li>
-          <li data-role="Coordinator"><strong>Assign</strong> a staff member, then use <em>Move to&hellip;</em> to advance one step at a time: Submitted &rarr; Assigned &rarr; In Progress &rarr; Completed. A request needs an assignee before it can be Assigned.</li>
-          <li data-role="Customer">Only the coordinator can assign work or change the status. Check back here to follow progress.</li>
-          <li>The <strong>status history</strong> lists every change, when it happened and which account made it.</li>
-        </ol>
-      </details>
-
-      <dl class="fields" id="detail-fields"></dl>
-
-      <form class="panel" id="update-form" data-role="Coordinator">
-        <h2>Assign and update</h2>
-        <label>Assignee <select name="assignee"></select></label>
-        <div class="actions">
-          <button type="submit" class="ghost" value="assign">Save assignee</button>
-          <button type="submit" value="advance" id="advance-button">Move to next status</button>
-        </div>
-      </form>
-
-      <h2>Status history</h2>
-      <div class="table-wrap" id="history-wrap">
-        <table>
-          <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th></tr></thead>
-          <tbody id="history-rows"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer" id="site-footer"></footer>
-
-  <script type="module" src="./Assets/JS/App.js"></script>
-</body>
+<!doctype html>
+<html lang="en-NZ">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#090d22" />
+    <meta name="description" content="Track community printing requests from submission to completion." />
+    <title>Print studio · Capital Community Print</title>
+    <link rel="icon" href="./Assets/Images/riker.webp" type="image/webp" />
+    <link rel="stylesheet" href="./Assets/CSS/Stylesheet.css" />
+  </head>
+  <body data-page="requests">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div id="site-nav"></div>
+    <div class="workspace">
+      <main class="container" id="main-content">
+        <div class="message" id="message" role="status" aria-live="polite" hidden></div>
+        <section id="list-view" class="view-enter" hidden>
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow"><span class="sparkle">✳</span> YOUR PRINT WORKSPACE</span>
+              <h1>Make good things <span class="gradient-text">happen.</span></h1>
+              <p class="lead" id="list-intro">An easier way to keep community print jobs moving.</p>
+            </div>
+            <a href="requestSubmission.html" class="button button-primary" data-role="Customer"><span aria-hidden="true">＋</span> Create request</a>
+          </div>
+          <section class="spotlight glass" aria-label="Workspace summary">
+            <div class="spotlight-content">
+              <span class="spotlight-kicker"><span class="live-dot"></span> WORKSPACE LIVE</span>
+              <h2>From the first idea<br />to the <em>final print.</em></h2>
+              <p>All your posters, flyers and booklets. One beautifully simple place to see what is happening next.</p>
+              <div class="spotlight-foot"><span class="mini-avatar">✳</span><span id="welcome-note">Keeping your community connected.</span></div>
+            </div>
+            <div class="spotlight-art" aria-hidden="true">
+              <div class="art-grid"></div>
+              <div class="paper paper-back"><span></span><span></span><span></span></div>
+              <div class="paper paper-front">
+                <small>CAPITAL / PRINT</small>
+                <div class="art-circle"></div>
+                <strong>MAKE<br />IT REAL.</strong><i>01 — COMMUNITY</i>
+              </div>
+              <div class="floating-star">✦</div>
+            </div>
+          </section>
+          <section class="stats" aria-label="Request overview">
+            <div class="stat-card glass">
+              <span class="stat-icon cyan">▣</span>
+              <div><span class="stat-label">Total in view</span><strong id="stat-total">—</strong></div>
+            </div>
+            <div class="stat-card glass">
+              <span class="stat-icon violet">◷</span>
+              <div><span class="stat-label">In progress</span><strong id="stat-progress">—</strong></div>
+            </div>
+            <div class="stat-card glass">
+              <span class="stat-icon magenta">✓</span>
+              <div><span class="stat-label">Completed</span><strong id="stat-done">—</strong></div>
+            </div>
+          </section>
+          <section class="requests-section" aria-labelledby="requests-title">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">TRACK & MANAGE</span>
+                <h2 id="requests-title">Print requests <span id="result-count" class="count-pill">0</span></h2>
+                <p>Find the work that matters, without the clutter.</p>
+              </div>
+              <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh requests" title="Refresh requests">↻</button>
+            </div>
+            <form class="filter-panel glass" id="filter-form" aria-label="Filter print requests">
+              <label
+                >View
+                <span class="select-wrap"
+                  ><select name="view">
+                    <option value="active">Active queue</option>
+                    <option value="all">All records</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="archived">Archived</option>
+                  </select></span
+                ></label
+              >
+              <label
+                >Status <span class="select-wrap"><select name="status"></select></span
+              ></label>
+              <label
+                >Category <span class="select-wrap"><select name="category"></select></span
+              ></label>
+              <label
+                >Priority <span class="select-wrap"><select name="priority"></select></span
+              ></label>
+              <button class="text-button" id="clear-filters" type="button">Clear filters</button>
+            </form>
+            <div class="data-surface glass" id="requests-surface">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Request</th>
+                      <th>Category</th>
+                      <th>Priority</th>
+                      <th>Status</th>
+                      <th>Assigned to</th>
+                      <th>Updated</th>
+                      <th><span class="sr-only">Open</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="request-rows"></tbody>
+                </table>
+              </div>
+              <div id="mobile-request-cards" class="mobile-cards"></div>
+              <div class="list-loading" id="list-loading" hidden><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>
+            </div>
+          </section>
+          <details class="help-panel glass">
+            <summary>Need a hand? <span>How the portal works</span></summary>
+            <p>Customers can submit and track their own requests. Coordinators can assign work and move requests through Submitted → Assigned → In Progress → Completed. Rejected requests and archived completed jobs remain accessible using the View filter. Artwork is supplied separately.</p>
+          </details>
+        </section>
+        <section id="details-view" class="view-enter" hidden>
+          <a href="index.html" class="back-link">← Back to all requests</a>
+          <div class="page-heading detail-heading">
+            <div>
+              <span class="eyebrow">REQUEST OVERVIEW</span>
+              <h1 id="detail-title">Request</h1>
+              <p class="lead" id="detail-subtitle">All the details, in one place.</p>
+            </div>
+            <span id="detail-badge"></span>
+          </div>
+          <section class="glass progress-panel">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">LIVE PROGRESS</span>
+                <h2>Production journey</h2>
+              </div>
+            </div>
+            <ol id="status-track" class="status-track" aria-label="Request progress"></ol>
+          </section>
+          <div class="detail-grid">
+            <section class="glass detail-card" aria-labelledby="detail-info-title">
+              <div class="card-top">
+                <span class="eyebrow">PRINT BRIEF</span>
+                <h2 id="detail-info-title">Request details</h2>
+              </div>
+              <dl class="fields" id="detail-fields"></dl>
+            </section>
+            <section class="glass detail-card coordinator-card" id="coordinator-panel" data-role="Coordinator">
+              <div class="card-top">
+                <span class="eyebrow">COORDINATOR TOOLS</span>
+                <h2>Manage this request</h2>
+                <p>Keep the work moving, or close a request that cannot proceed.</p>
+              </div>
+              <form id="update-form" class="stack">
+                <label
+                  >Assign staff member <span class="select-wrap"><select name="assignee"></select></span
+                ></label>
+                <div class="actions"><button class="button button-subtle" type="submit" value="assign">Save assignment</button><button class="button button-primary" type="submit" value="advance" id="advance-button">Advance status →</button></div>
+              </form>
+              <div class="danger-zone">
+                <span class="eyebrow">REVIEW & ARCHIVE</span>
+                <div class="actions"><button id="reject-button" type="button" class="button button-warning">Reject request</button><button id="delete-button" type="button" class="button button-danger">Delete completed request</button></div>
+                <p>Deleting archives the job instead of destroying its history.</p>
+              </div>
+            </section>
+            <section class="glass detail-card timeline-card">
+              <div class="card-top">
+                <span class="eyebrow">AUDIT TRAIL</span>
+                <h2>Activity history</h2>
+                <p>Every change, with a timestamp and the person responsible.</p>
+              </div>
+              <ol class="timeline" id="history-items"></ol>
+            </section>
+          </div>
+        </section>
+        <dialog id="confirm-dialog" class="modal">
+          <form method="dialog" id="confirm-form">
+            <div class="modal-symbol" id="modal-symbol">✦</div>
+            <h2 id="modal-title">Confirm action</h2>
+            <p id="modal-description"></p>
+            <label id="reason-label" hidden>Reason for rejection<textarea name="reason" id="rejection-reason" rows="4" maxlength="500" minlength="5" placeholder="Why can't this request proceed?"></textarea></label>
+            <div class="modal-actions"><button value="cancel" type="button" class="button button-subtle" id="cancel-action">Cancel</button><button value="confirm" type="submit" class="button button-danger" id="confirm-action">Confirm</button></div>
+          </form>
+        </dialog>
+      </main>
+      <footer id="site-footer" class="site-footer"></footer>
+    </div>
+    <script type="module" src="./Assets/JS/App.js"></script>
+  </body>
 </html>

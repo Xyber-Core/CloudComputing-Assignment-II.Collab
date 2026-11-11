@@ -5,13 +5,13 @@
    locally. There is no password or connection-string secret.
    ============================================================ */
 
-const sql = require("mssql");
+const sql = require('mssql');
 
 function sqlConfig(env = process.env) {
   return {
     server: env.SQL_SERVER, // e.g. sql-printportal-dev.database.windows.net
     database: env.SQL_DATABASE,
-    authentication: { type: "azure-active-directory-default", options: {} },
+    authentication: { type: 'azure-active-directory-default', options: {} },
     options: { encrypt: true },
     pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
   };
@@ -19,7 +19,8 @@ function sqlConfig(env = process.env) {
 
 const REQUEST_COLUMNS = `Id AS id, CustomerId AS customerId, CampaignReference AS campaignReference,
   Category AS category, Description AS description, Priority AS priority, Status AS status,
-  Assignee AS assignee, CreatedAt AS createdAt, UpdatedAt AS updatedAt`;
+  Assignee AS assignee, RejectedAt AS rejectedAt, RejectedBy AS rejectedBy, RejectionReason AS rejectionReason,
+  DeletedAt AS deletedAt, DeletedBy AS deletedBy, CreatedAt AS createdAt, UpdatedAt AS updatedAt`;
 
 function createSqlRepo(config = sqlConfig()) {
   const poolPromise = new sql.ConnectionPool(config).connect();
@@ -27,20 +28,22 @@ function createSqlRepo(config = sqlConfig()) {
 
   return {
     async ping() {
-      await (await request()).query("SELECT 1");
+      await (await request()).query('SELECT 1');
     },
 
     async findUser(id) {
-      const result = await (await request())
-        .input("id", sql.NVarChar(100), id)
-        .query("SELECT Id AS id, Role AS role FROM dbo.Users WHERE Id = @id");
+      const result = await (await request()).input('id', sql.NVarChar(100), id).query('SELECT Id AS id, Role AS role FROM dbo.Users WHERE Id = @id');
       return result.recordset[0] || null;
     },
 
     async listRequests(filters = {}) {
       const req = await request();
       const where = [];
-      const columns = { customerId: "CustomerId", status: "Status", category: "Category", priority: "Priority" };
+      const view = filters.view || 'active';
+      if (view === 'active') where.push('DeletedAt IS NULL AND RejectedAt IS NULL');
+      if (view === 'rejected') where.push('RejectedAt IS NOT NULL AND DeletedAt IS NULL');
+      if (view === 'archived') where.push('DeletedAt IS NOT NULL');
+      const columns = { customerId: 'CustomerId', status: 'Status', category: 'Category', priority: 'Priority' };
       for (const [key, column] of Object.entries(columns)) {
         if (!filters[key]) continue;
         req.input(key, sql.NVarChar(100), filters[key]);
@@ -48,24 +51,20 @@ function createSqlRepo(config = sqlConfig()) {
       }
       const result = await req.query(
         `SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest
-         ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
-         ORDER BY CreatedAt DESC, Id DESC`
+         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+         ORDER BY CreatedAt DESC, Id DESC`,
       );
       return result.recordset;
     },
 
     async getRequest(id) {
-      const result = await (await request())
-        .input("id", sql.Int, id)
-        .query(`SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest WHERE Id = @id`);
+      const result = await (await request()).input('id', sql.Int, id).query(`SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest WHERE Id = @id`);
       return result.recordset[0] || null;
     },
 
     async getHistory(requestId) {
-      const result = await (await request())
-        .input("requestId", sql.Int, requestId)
-        .query(`SELECT RequestId AS requestId, PreviousStatus AS previousStatus, NewStatus AS newStatus,
-                  Actor AS actor, ChangedAt AS changedAt
+      const result = await (await request()).input('requestId', sql.Int, requestId).query(`SELECT RequestId AS requestId, PreviousStatus AS previousStatus, NewStatus AS newStatus,
+                  Actor AS actor, ChangedAt AS changedAt, EventType AS eventType, Note AS note
                 FROM dbo.StatusHistory WHERE RequestId = @requestId ORDER BY ChangedAt, Id`);
       return result.recordset;
     },
@@ -73,13 +72,12 @@ function createSqlRepo(config = sqlConfig()) {
     // Request row and its first history entry are written in one transaction.
     async createRequest(fields, actor) {
       const result = await (await request())
-        .input("customerId", sql.NVarChar(100), fields.customerId)
-        .input("campaignReference", sql.NVarChar(30), fields.campaignReference)
-        .input("category", sql.NVarChar(20), fields.category)
-        .input("description", sql.NVarChar(1000), fields.description)
-        .input("priority", sql.NVarChar(10), fields.priority)
-        .input("actor", sql.NVarChar(100), actor)
-        .query(`SET XACT_ABORT ON;
+        .input('customerId', sql.NVarChar(100), fields.customerId)
+        .input('campaignReference', sql.NVarChar(30), fields.campaignReference)
+        .input('category', sql.NVarChar(20), fields.category)
+        .input('description', sql.NVarChar(1000), fields.description)
+        .input('priority', sql.NVarChar(10), fields.priority)
+        .input('actor', sql.NVarChar(100), actor).query(`SET XACT_ABORT ON;
           BEGIN TRANSACTION;
           INSERT INTO dbo.PrintRequest (CustomerId, CampaignReference, Category, Description, Priority, Status)
           VALUES (@customerId, @campaignReference, @category, @description, @priority, 'Submitted');
@@ -93,12 +91,13 @@ function createSqlRepo(config = sqlConfig()) {
 
     // Status change and its history entry are written in one transaction.
     async updateRequest(id, changes, actor) {
-      const result = await (await request())
-        .input("id", sql.Int, id)
-        .input("assignee", sql.NVarChar(100), changes.assignee ?? null)
-        .input("status", sql.NVarChar(20), changes.status ?? null)
-        .input("actor", sql.NVarChar(100), actor)
-        .query(`SET XACT_ABORT ON;
+      const result = await (
+        await request()
+      )
+        .input('id', sql.Int, id)
+        .input('assignee', sql.NVarChar(100), changes.assignee ?? null)
+        .input('status', sql.NVarChar(20), changes.status ?? null)
+        .input('actor', sql.NVarChar(100), actor).query(`SET XACT_ABORT ON;
           BEGIN TRANSACTION;
           INSERT INTO dbo.StatusHistory (RequestId, PreviousStatus, NewStatus, Actor)
           SELECT Id, Status, @status, @actor FROM dbo.PrintRequest
@@ -106,6 +105,31 @@ function createSqlRepo(config = sqlConfig()) {
           UPDATE dbo.PrintRequest
           SET Assignee = COALESCE(@assignee, Assignee), Status = COALESCE(@status, Status), UpdatedAt = SYSUTCDATETIME()
           WHERE Id = @id;
+          COMMIT;
+          SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest WHERE Id = @id;`);
+      return result.recordset[0];
+    },
+
+    async rejectRequest(id, reason, actor) {
+      const result = await (await request()).input('id', sql.Int, id).input('actor', sql.NVarChar(100), actor).input('reason', sql.NVarChar(500), reason).query(`SET XACT_ABORT ON; BEGIN TRANSACTION;
+          UPDATE dbo.PrintRequest SET RejectedAt = SYSUTCDATETIME(), RejectedBy = @actor,
+          RejectionReason = @reason, UpdatedAt = SYSUTCDATETIME()
+          WHERE Id = @id AND Status = 'Submitted' AND RejectedAt IS NULL AND DeletedAt IS NULL;
+          IF @@ROWCOUNT <> 1 THROW 50001, 'Request cannot be rejected', 1;
+          INSERT INTO dbo.StatusHistory (RequestId, PreviousStatus, NewStatus, Actor, EventType, Note)
+          VALUES (@id, 'Submitted', 'Submitted', @actor, 'Rejected', @reason);
+          COMMIT;
+          SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest WHERE Id = @id;`);
+      return result.recordset[0];
+    },
+
+    async archiveRequest(id, actor) {
+      const result = await (await request()).input('id', sql.Int, id).input('actor', sql.NVarChar(100), actor).query(`SET XACT_ABORT ON; BEGIN TRANSACTION;
+          UPDATE dbo.PrintRequest SET DeletedAt = SYSUTCDATETIME(), DeletedBy = @actor, UpdatedAt = SYSUTCDATETIME()
+          WHERE Id = @id AND Status = 'Completed' AND RejectedAt IS NULL AND DeletedAt IS NULL;
+          IF @@ROWCOUNT <> 1 THROW 50002, 'Request cannot be archived', 1;
+          INSERT INTO dbo.StatusHistory (RequestId, PreviousStatus, NewStatus, Actor, EventType, Note)
+          VALUES (@id, 'Completed', 'Completed', @actor, 'Archived', 'Moved to archive');
           COMMIT;
           SELECT ${REQUEST_COLUMNS} FROM dbo.PrintRequest WHERE Id = @id;`);
       return result.recordset[0];

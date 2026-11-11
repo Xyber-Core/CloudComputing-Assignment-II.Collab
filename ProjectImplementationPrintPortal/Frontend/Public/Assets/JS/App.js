@@ -1,495 +1,425 @@
-import { initXyberOverlay } from './overlay.js';
-import {
-    nextStatus,
-    buildQuery,
-    escapeHtml,
-    tourCardPosition
-} from './Helpers.js';
-
-export {
-    nextStatus,
-    buildQuery,
-    escapeHtml,
-    tourCardPosition
-} from './Helpers.js';
-
-async function initPage() {
-  initXyberOverlay();
-}
-
-/* ============================================================
-   Capital Community Print — shared script for all pages
-   Loads the shared components and Data.json, then runs the view
-   for the page's data-page attribute. All data comes from the API.
-   ============================================================ */
-
-/* ── API environment configuration ───────────────────────── */
-
-const API_BASES = {
-  cloud: 'https://printportal-worker.rikerhoch.workers.dev',
-  local: 'http://localhost:3000',
-};
-
-const savedApiMode = localStorage.getItem('printportal-api-mode');
-
-let activeApiMode = API_BASES[savedApiMode] ? savedApiMode : 'cloud';
-
-let API_BASE = API_BASES[activeApiMode];
-
-function updateApiEnvironmentSelector() {
-  const selector = document.getElementById('api-environment-select');
-
-  if (selector) {
-    selector.value = activeApiMode;
-  }
-}
-
-// Expose the switcher for the dynamically loaded navigation.
-window.switchApiEnvironment = async function (mode) {
-  if (!API_BASES[mode] || mode === activeApiMode) return;
-
-  const previousMode = activeApiMode;
-
-  activeApiMode = mode;
-  API_BASE = API_BASES[mode];
-
-  localStorage.setItem('printportal-api-mode', mode);
-
-  updateApiEnvironmentSelector();
-
-  console.log(`PrintPortal API: ${activeApiMode}`);
-  console.log(`API endpoint: ${API_BASE}`);
-
-  try {
-    await refreshCurrentPageData();
-    showMessage(`Connected to ${mode === 'cloud' ? 'Cloudflare' : 'Local'} API.`);
-  } catch (error) {
-    console.error('API environment switch failed:', error);
-
-    // Restore the previous environment if the new one fails.
-    activeApiMode = previousMode;
-    API_BASE = API_BASES[previousMode];
-
-    localStorage.setItem('printportal-api-mode', previousMode);
-    updateApiEnvironmentSelector();
-
-    showMessage(`Could not load data from ${mode} API: ${error.message}`, true);
-  }
-};
+/* Capital Community Print · shared dashboard controller.
+ * UI state is transient; API authorization is enforced by the server, not the DOM.
+ */
+import { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
+import { API_BASES, defaultApiMode } from './api-config.js';
+export { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 
 const DATA_URL = './Assets/JSON/Data.json';
 const USER_KEY = 'printportal-user';
-const TOUR_KEY = 'printportal-tour-seen';
-
-/* ── Pure helpers (unit tested) ────────────────────────────── */
-
-
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleString('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function statusPill(status) {
-  const slug = String(status).toLowerCase().replace(/\s+/g, '-');
-  return `<span class="status status-${escapeHtml(slug)}">${escapeHtml(status)}</span>`;
-}
-
-/* ── Signed-in synthetic user ──────────────────────────────── */
+const API_KEY = 'printportal-api-mode';
+const FONT_KEY = 'printportal-silly-type';
+const $ = (selector) => document.querySelector(selector);
 let users = [];
+let reference = {};
+let detail = null;
+let apiMode = safeGet(API_KEY) || defaultApiMode(location.hostname);
+if (!API_BASES[apiMode]) apiMode = defaultApiMode(location.hostname);
 
-function currentUser() {
-  let id = null;
-  try {
-    id = localStorage.getItem(USER_KEY);
-  } catch (e) {}
-  return users.find((u) => u.id === id) || users[0];
+function apiOrigin() {
+  if (apiMode === 'local' && ['localhost', '127.0.0.1'].includes(location.hostname)) {
+    return `${location.protocol}//${location.hostname}:3000`;
+  }
+  return API_BASES[apiMode];
 }
-
-function setupUserPicker() {
-  const select = document.getElementById('user-select');
-  select.innerHTML = users.map((u) => `<option value="${u.id}">${escapeHtml(u.name)} (${u.role})</option>`).join('');
-  select.value = currentUser().id;
-  select.addEventListener('change', () => {
-    try {
-      localStorage.setItem(USER_KEY, select.value);
-    } catch (e) {}
+function safeGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function safeSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode */
+  }
+}
+function currentUser() {
+  return users.find((u) => u.id === safeGet(USER_KEY)) || users[0];
+}
+function formatDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-NZ', { timeZone: 'Pacific/Auckland', dateStyle: 'medium', timeStyle: 'short' }).format(date);
+}
+function statusLabel(request) {
+  return request.deletedAt ? 'Archived' : request.rejectedAt ? 'Rejected' : request.status;
+}
+function statusPill(status) {
+  return `<span class="status status-${escapeHtml(String(status).toLowerCase().replaceAll(' ', '-'))}">${escapeHtml(status)}</span>`;
+}
+function showMessage(message, isError = false) {
+  const element = $('#message');
+  if (!element) return;
+  element.textContent = message;
+  element.className = `message${isError ? ' error' : ''}`;
+  element.hidden = false;
+  if (isError) element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function clearMessage() {
+  const el = $('#message');
+  if (el) el.hidden = true;
+}
+function setLoading(loading) {
+  const el = $('#list-loading');
+  if (el) el.hidden = !loading;
+}
+function connection(online) {
+  $('#connection-indicator')?.classList.toggle('offline', !online);
+  const text = $('#connection-text');
+  if (text) text.textContent = `${apiMode === 'local' ? 'Local' : 'Cloud'} ${online ? 'connected' : 'offline'}`;
+}
+async function api(path, options = {}) {
+  const response = await fetch(`${apiOrigin()}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': currentUser().id, ...options.headers },
+    signal: options.signal || AbortSignal.timeout(12000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || data.errors?.join(' ') || `Request failed (${response.status}).`);
+  return data;
+}
+async function checkHealth() {
+  const response = await fetch(`${apiOrigin()}/api/health`, { signal: AbortSignal.timeout(7000) });
+  if (!response.ok) throw new Error(`API health check failed (${response.status})`);
+}
+function populateSelect(element, items, placeholder) {
+  if (!element) return;
+  element.innerHTML = [...(placeholder === undefined ? [] : [`<option value="">${escapeHtml(placeholder)}</option>`]), ...items.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)].join('');
+}
+async function loadComponent(selector, path) {
+  const response = await fetch(`./Assets/Components/${path}`);
+  if (!response.ok) throw new Error(`Unable to load ${path}`);
+  $(selector).innerHTML = await response.text();
+}
+function setRoles() {
+  const role = currentUser().role;
+  document.querySelectorAll('[data-role]').forEach((el) => {
+    el.hidden = el.dataset.role !== role;
+  });
+  const account = $('#settings-name');
+  if (account) account.textContent = currentUser().name;
+}
+function initNavigation() {
+  populateSelect(
+    $('#user-select'),
+    users.map((u) => u.id),
+  );
+  // User picker shows friendly role and name while retaining the synthetic ID.
+  $('#user-select').innerHTML = users.map((u) => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)} · ${escapeHtml(u.role)}</option>`).join('');
+  $('#user-select').value = currentUser().id;
+  $('#user-select').addEventListener('change', (event) => {
+    safeSet(USER_KEY, event.target.value);
     location.reload();
   });
-  // Show role-specific controls and instructions only to that role.
-  document.querySelectorAll('[data-role]').forEach((el) => {
-    el.hidden = el.dataset.role !== currentUser().role;
-  });
-}
-
-/* ── API ───────────────────────────────────────────────────── */
-async function api(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-User-Id': currentUser().id,
-      ...options.headers,
-    },
-  });
-
-  const body = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(body.error || `Request failed (${res.status}).`);
-  }
-
-  return body;
-}
-
-/* ── Shared UI ─────────────────────────────────────────────── */
-async function loadComponent(id, url) {
-  const el = document.getElementById(id);
-
-  if (el) {
-    const response = await fetch(`/${url.replace(/^\/+/, '')}`);
-
-    if (!response.ok) {
-      throw new Error(`Failed to load component: ${url}`);
-    }
-
-    el.innerHTML = await response.text();
-  }
-}
-
-function showMessage(text, isError = false) {
-  const el = document.getElementById('message');
-  el.textContent = text;
-  el.className = isError ? 'message error' : 'message success';
-  el.hidden = false;
-}
-
-function fillSelect(select, values, placeholder) {
-  const options = values.map((v) => `<option>${escapeHtml(v)}</option>`);
-  if (placeholder) options.unshift(`<option value="">${escapeHtml(placeholder)}</option>`);
-  select.innerHTML = options.join('');
-}
-
-/* ── Guided tour ───────────────────────────────────────────── */
-// Steps whose target is hidden (e.g. coordinator-only controls) are skipped.
-const TOURS = {
-  list: [
-    { target: '#list-help', title: 'Welcome to the print portal', text: 'These instructions stay on every page. Collapse them once you know your way around.' },
-    { target: '.user-picker', title: 'Pick a demo account', text: 'Switch between Customer A, Customer B and the Coordinator. Each account only sees what its role allows.' },
-    { target: '#filter-form', title: 'Find outstanding work', text: 'Filter by status, category or priority. The list updates as soon as you change a filter.' },
-    { target: '#list-view .table-wrap', title: 'Requests', text: "Customers see their own requests; the coordinator sees everyone's. Click an ID to open its details and history." },
-    { target: '.nav a[href="requestSubmission.html"]', title: 'Submit a print job', text: 'Start a new poster, flyer or booklet request here.' },
-    { target: '#tour-button', title: 'Need a refresher?', text: 'Replay this tour any time from here.' },
-  ],
-  details: [
-    { target: '#detail-fields', title: 'Request details', text: 'What was requested, its current status and who is working on it.' },
-    { target: '#update-form', title: 'Assign and update', text: 'Pick a staff member, then move the request one step at a time: Submitted, Assigned, In Progress, Completed.' },
-    { target: '#history-wrap', title: 'Status history', text: 'Every status change, when it happened and which account made it.' },
-  ],
-  submit: [
-    { target: 'label:has([name="campaignReference"])', title: 'Campaign reference', text: 'Your event or campaign code, such as WLG-DEMO-001.' },
-    { target: 'label:has([name="category"])', title: 'Print category', text: 'Choose Posters, Flyers or Booklets.' },
-    { target: 'label:has([name="description"])', title: 'Description', text: 'Quantity, size, paper and anything else the printers need. Artwork is supplied separately, offline.' },
-    { target: 'label:has([name="priority"])', title: 'Priority', text: 'How urgent the job is: Low, Normal or High.' },
-    { target: '#submit-form button[type="submit"]', title: 'Submit', text: "You'll go straight to the new request's page to follow its progress." },
-  ],
-};
-
-let tourName = null; // the tour the current view offers
-let tour = null; // the running tour: { steps, index, layer }
-
-const isVisible = (el) => Boolean(el && el.getClientRects().length);
-
-function startTour(name) {
-  endTour();
-  const steps = (TOURS[name] || []).filter((step) => isVisible(document.querySelector(step.target)));
-  if (!steps.length) return;
-
-  const layer = document.createElement('div');
-  layer.className = 'tour';
-  layer.innerHTML = `
-    <div class="tour-spotlight"></div>
-    <div class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-      <p class="tour-step"></p>
-      <h3 class="tour-title" id="tour-title"></h3>
-      <p class="tour-text"></p>
-      <div class="tour-actions">
-        <button type="button" class="ghost small" data-tour="skip">Skip</button>
-        <button type="button" class="ghost small" data-tour="back">Back</button>
-        <button type="button" class="small" data-tour="next">Next</button>
-      </div>
-    </div>`;
-  layer.addEventListener('click', (event) => {
-    const action = event.target.dataset.tour;
-    if (action === 'next') showTourStep(tour.index + 1);
-    if (action === 'back') showTourStep(tour.index - 1);
-    if (action === 'skip') endTour();
-  });
-  document.body.appendChild(layer);
-  document.addEventListener('keydown', onTourKey);
-  window.addEventListener('resize', positionTour);
-  window.addEventListener('scroll', positionTour, { passive: true });
-
-  tour = { steps, index: 0, layer };
-  try {
-    localStorage.setItem(`${TOUR_KEY}-${name}`, '1');
-  } catch (e) {}
-  showTourStep(0);
-}
-
-// Starts the current view's tour automatically the first time it is seen,
-// once the entrance animations have settled.
-function autoTour() {
-  let seen = false;
-  try {
-    seen = Boolean(localStorage.getItem(`${TOUR_KEY}-${tourName}`));
-  } catch (e) {}
-  if (!seen) setTimeout(() => startTour(tourName), 500);
-}
-
-function showTourStep(index) {
-  if (index >= tour.steps.length) return endTour();
-  tour.index = Math.max(0, index);
-  const step = tour.steps[tour.index];
-  const card = tour.layer.querySelector('.tour-card');
-  const next = card.querySelector('[data-tour="next"]');
-
-  card.querySelector('.tour-step').textContent = `Step ${tour.index + 1} of ${tour.steps.length}`;
-  card.querySelector('.tour-title').textContent = step.title;
-  card.querySelector('.tour-text').textContent = step.text;
-  card.querySelector('[data-tour="back"]').hidden = tour.index === 0;
-  next.textContent = tour.index === tour.steps.length - 1 ? 'Finish' : 'Next';
-  next.focus({ preventScroll: true });
-
-  const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.querySelector(step.target).scrollIntoView({ block: 'center', behavior: smooth ? 'smooth' : 'auto' });
-  positionTour();
-}
-
-function positionTour() {
-  if (!tour) return;
-  const rect = document.querySelector(tour.steps[tour.index].target).getBoundingClientRect();
-  const pad = 6;
-  Object.assign(tour.layer.querySelector('.tour-spotlight').style, {
-    top: `${rect.top - pad}px`,
-    left: `${rect.left - pad}px`,
-    width: `${rect.width + pad * 2}px`,
-    height: `${rect.height + pad * 2}px`,
-  });
-
-  const card = tour.layer.querySelector('.tour-card');
-  const { top, left } = tourCardPosition({ top: rect.top - pad, bottom: rect.bottom + pad, left: rect.left - pad }, { width: card.offsetWidth, height: card.offsetHeight }, { width: document.documentElement.clientWidth, height: window.innerHeight });
-  card.style.top = `${top}px`;
-  card.style.left = `${left}px`;
-}
-
-function onTourKey(event) {
-  if (event.key === 'Escape') endTour();
-  else if (event.key === 'ArrowRight') showTourStep(tour.index + 1);
-  else if (event.key === 'ArrowLeft') showTourStep(tour.index - 1);
-}
-
-function endTour() {
-  if (!tour) return;
-  tour.layer.remove();
-  document.removeEventListener('keydown', onTourKey);
-  window.removeEventListener('resize', positionTour);
-  window.removeEventListener('scroll', positionTour);
-  tour = null;
-}
-
-/* ── Requests page: list + filters ─────────────────────────── */
-function initRequestsPage(data) {
-  const id = new URLSearchParams(location.search).get('id');
-  if (id) return initDetails(id, data);
-
-  tourName = 'list';
-  const form = document.getElementById('filter-form');
-  fillSelect(form.status, data.statuses, 'All');
-  fillSelect(form.category, data.categories, 'All');
-  fillSelect(form.priority, data.priorities, 'All');
-  form.addEventListener('change', () => loadList(form));
-  document.getElementById('list-view').hidden = false;
-  loadList(form).then(autoTour);
-}
-
-async function loadList(form) {
-  const rows = document.getElementById('request-rows');
-  try {
-    const requests = await api(`/api/requests${buildQuery(Object.fromEntries(new FormData(form)))}`);
-    rows.innerHTML = requests.length
-      ? requests
-          .map(
-            (r, i) => `
-          <tr style="--i:${i}">
-            <td><a href="index.html?id=${r.id}">#${r.id}</a></td>
-            <td>${escapeHtml(r.campaignReference)}</td>
-            <td>${escapeHtml(r.category)}</td>
-            <td>${escapeHtml(r.priority)}</td>
-            <td>${statusPill(r.status)}</td>
-            <td>${escapeHtml(r.assignee || '—')}</td>
-            <td>${formatDate(r.updatedAt)}</td>
-          </tr>`,
-          )
-          .join('')
-      : `<tr><td colspan="7" class="empty">No requests found.</td></tr>`;
-  } catch (err) {
-    showMessage(err.message, true);
-  }
-}
-
-/* ── Refresh current page after API environment switch ─── */
-
-async function refreshCurrentPageData() {
-  const data = await (await fetch(DATA_URL)).json();
-
-  const page = document.body.dataset.page;
-
-  if (page === 'requests') {
-    const id = new URLSearchParams(location.search).get('id');
-
-    if (id) {
-      const request = await api(`/api/requests/${encodeURIComponent(id)}`);
-
-      renderDetails(request, data);
-    } else {
-      const form = document.getElementById('filter-form');
-      await loadList(form);
-    }
-  }
-
-  console.log(`Page data refreshed from ${activeApiMode} API.`);
-}
-
-/* ── Requests page: details, history, assign/update ────────── */
-async function initDetails(id, data) {
-  tourName = 'details';
-  const form = document.getElementById('update-form');
-  let current = null;
-
-  fillSelect(form.assignee, data.staff, 'Choose a staff member');
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const body = {};
-    if (form.assignee.value) body.assignee = form.assignee.value;
-    if (event.submitter.value === 'advance') body.status = nextStatus(data.statuses, current.status);
+  $('#api-environment-select').value = apiMode;
+  $('#api-environment-select').addEventListener('change', async (event) => {
+    const desired = event.target.value;
+    if (desired === apiMode) return;
+    const previous = apiMode;
+    apiMode = desired;
+    clearMessage();
     try {
-      current = await api(`/api/requests/${current.id}`, { method: 'PATCH', body: JSON.stringify(body) });
-      renderDetails(current, data);
-      showMessage('Request updated.');
-    } catch (err) {
-      showMessage(err.message, true);
+      await checkHealth();
+      await refreshPage();
+      safeSet(API_KEY, apiMode);
+      connection(true);
+      showMessage(`Switched to the ${apiMode === 'cloud' ? 'Cloudflare Worker' : 'local Express'} API.`);
+    } catch (error) {
+      apiMode = previous;
+      event.target.value = previous;
+      connection(false);
+      showMessage(`Could not connect to ${desired}: ${error.message}`, true);
     }
   });
-
-  try {
-    current = await api(`/api/requests/${encodeURIComponent(id)}`);
-    renderDetails(current, data);
-    document.getElementById('details-view').hidden = false;
-    autoTour();
-  } catch (err) {
-    showMessage(err.message, true);
-  }
+  const isSilly = safeGet(FONT_KEY) === 'yes';
+  document.body.classList.toggle('silly-type', isSilly);
+  const fontButton = $('#fun-font-button');
+  fontButton.setAttribute('aria-pressed', String(isSilly));
+  $('#font-state').textContent = isSilly ? 'On' : 'Off';
+  fontButton.addEventListener('click', () => {
+    const active = document.body.classList.toggle('silly-type');
+    safeSet(FONT_KEY, active ? 'yes' : 'no');
+    fontButton.setAttribute('aria-pressed', String(active));
+    $('#font-state').textContent = active ? 'On' : 'Off';
+  });
+  document.querySelectorAll('[data-nav]').forEach((link) => {
+    const active = link.dataset.nav === (document.body.dataset.page === 'submit' ? 'submit' : 'requests');
+    link.classList.toggle('active', active);
+    if (active) link.setAttribute('aria-current', 'page');
+  });
+  $('#topbar-section').textContent = document.body.dataset.page === 'submit' ? 'New request' : 'Overview';
+  const menu = $('#mobile-menu');
+  const toggle = $('#menu-toggle');
+  toggle.addEventListener('click', () => {
+    menu.showModal();
+    toggle.setAttribute('aria-expanded', 'true');
+  });
+  $('#close-mobile-menu').addEventListener('click', () => menu.close());
+  menu.addEventListener('close', () => toggle.setAttribute('aria-expanded', 'false'));
+  menu.addEventListener('click', (event) => {
+    if (event.target === menu) menu.close();
+  });
+  document.addEventListener('click', (event) => {
+    const settings = $('#settings-menu');
+    if (settings?.open && !settings.contains(event.target)) settings.open = false;
+  });
+  // Heavy team credits overlay is intentionally lazy-loaded, never in the critical path.
+  $('#about-button').addEventListener('click', async () => {
+    try {
+      if (!$('#xc-trigger')) {
+        const { initXyberOverlay } = await import('./overlay.js');
+        await initXyberOverlay();
+      }
+      $('#xc-trigger')?.click();
+    } catch (error) {
+      showMessage(`Credits unavailable: ${error.message}`, true);
+    }
+  });
+  setRoles();
 }
-
-function renderDetails(r, data) {
-  document.getElementById('detail-title').textContent = `Request #${r.id} · ${r.campaignReference}`;
-
-  const fields = [
-    ['Status', statusPill(r.status)],
-    ['Customer', escapeHtml(r.customerId)],
-    ['Category', escapeHtml(r.category)],
-    ['Priority', escapeHtml(r.priority)],
-    ['Assignee', escapeHtml(r.assignee || 'Not assigned')],
-    ['Description', escapeHtml(r.description)],
-    ['Submitted', formatDate(r.createdAt)],
-    ['Last updated', formatDate(r.updatedAt)],
-  ];
-  document.getElementById('detail-fields').innerHTML = fields.map(([label, html]) => `<dt>${label}</dt><dd>${html}</dd>`).join('');
-
-  document.getElementById('history-rows').innerHTML = r.history
+function renderStatistics(requests) {
+  $('#stat-total').textContent = String(requests.length);
+  $('#stat-progress').textContent = String(requests.filter((r) => r.status === 'In Progress' && !r.rejectedAt && !r.deletedAt).length);
+  $('#stat-done').textContent = String(requests.filter((r) => r.status === 'Completed').length);
+}
+function renderList(requests) {
+  $('#result-count').textContent = String(requests.length);
+  const tbody = $('#request-rows'),
+    cards = $('#mobile-request-cards');
+  if (!requests.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No requests match these filters. Try clearing them.</td></tr>';
+    cards.innerHTML = '<p class="empty">No requests match these filters. Try clearing them.</p>';
+    return;
+  }
+  tbody.innerHTML = requests
     .map(
-      (h, i) => `
-    <tr style="--i:${i}">
-      <td>${formatDate(h.changedAt)}</td>
-      <td>${h.previousStatus ? statusPill(h.previousStatus) : '—'}</td>
-      <td>${statusPill(h.newStatus)}</td>
-      <td>${escapeHtml(h.actor)}</td>
-    </tr>`,
+      (r, index) => `<tr style="--i:${index}">
+    <td><a href="index.html?id=${encodeURIComponent(r.id)}"><span class="request-name">${escapeHtml(r.campaignReference)}</span><span class="request-id">#${escapeHtml(r.id)}</span></a></td>
+    <td>${escapeHtml(r.category)}</td><td><span class="priority priority-${escapeHtml(r.priority.toLowerCase())}">${escapeHtml(r.priority)}</span></td><td>${statusPill(statusLabel(r))}</td>
+    <td>${escapeHtml(r.assignee || 'Unassigned')}</td><td>${escapeHtml(formatDate(r.updatedAt))}</td><td><a class="row-arrow" href="index.html?id=${encodeURIComponent(r.id)}" aria-label="Open request ${escapeHtml(r.id)}">↗</a></td></tr>`,
     )
     .join('');
-
-  const form = document.getElementById('update-form');
-  form.assignee.value = r.assignee || '';
-  const next = nextStatus(data.statuses, r.status);
-  const advance = document.getElementById('advance-button');
-  advance.hidden = !next;
-  advance.textContent = `Move to ${next}`;
+  cards.innerHTML = requests
+    .map(
+      (r) =>
+        `<a class="request-mobile-card" href="index.html?id=${encodeURIComponent(r.id)}"><div class="mobile-card-top"><strong>${escapeHtml(r.campaignReference)}</strong>${statusPill(statusLabel(r))}</div><div class="mobile-card-meta"><span>#${escapeHtml(r.id)}</span><span>·</span><span>${escapeHtml(r.category)}</span><span>·</span><span class="priority priority-${escapeHtml(r.priority.toLowerCase())}">${escapeHtml(r.priority)}</span></div><div class="mobile-card-bottom"><span>${escapeHtml(r.assignee || 'Not assigned')}</span><span>${escapeHtml(formatDate(r.updatedAt))} ↗</span></div></a>`,
+    )
+    .join('');
 }
-
-/* ── Submit page ───────────────────────────────────────────── */
-function initSubmitPage(data) {
-  tourName = 'submit';
-  const form = document.getElementById('submit-form');
-  fillSelect(form.category, data.categories, 'Choose a category');
-  fillSelect(form.priority, data.priorities);
-  form.priority.value = 'Normal';
-
-  form.addEventListener('submit', async (event) => {
+async function loadList() {
+  const form = $('#filter-form');
+  if (!form) return;
+  setLoading(true);
+  try {
+    const selected = Object.fromEntries(new FormData(form));
+    const [all, filtered] = await Promise.all([api(`/api/requests${buildQuery({ view: selected.view })}`), api(`/api/requests${buildQuery(selected)}`)]);
+    renderStatistics(all);
+    renderList(filtered);
+    connection(true);
+  } catch (error) {
+    connection(false);
+    showMessage(`Unable to load requests: ${error.message}`, true);
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+}
+async function initList() {
+  $('#list-view').hidden = false;
+  populateSelect($('#filter-form [name="status"]'), reference.statuses, 'All statuses');
+  populateSelect($('#filter-form [name="category"]'), reference.categories, 'All categories');
+  populateSelect($('#filter-form [name="priority"]'), reference.priorities, 'All priorities');
+  $('#list-intro').textContent = currentUser().role === 'Coordinator' ? 'See every job, prioritise the queue and keep your team moving.' : 'An easier way to keep your community print jobs moving.';
+  $('#welcome-note').textContent = currentUser().role === 'Coordinator' ? 'Your team has the whole picture.' : 'Your next community project starts here.';
+  $('#filter-form').addEventListener('change', () => {
+    clearMessage();
+    loadList().catch(() => {});
+  });
+  $('#clear-filters').addEventListener('click', () => {
+    $('#filter-form').reset();
+    clearMessage();
+    loadList().catch(() => {});
+  });
+  $('#refresh-button').addEventListener('click', () => {
+    clearMessage();
+    loadList().catch(() => {});
+  });
+  await loadList();
+}
+function statusTrack(request) {
+  const position = reference.statuses.indexOf(request.status);
+  $('#status-track').innerHTML = reference.statuses.map((step, i) => `<li class="${i < position ? 'passed' : i === position ? 'current' : ''}" ${i === position ? 'aria-current="step"' : ''}>${escapeHtml(step)}</li>`).join('');
+}
+function renderHistory(history) {
+  $('#history-items').innerHTML = history?.length
+    ? history
+        .map((event) => {
+          const label = event.eventType === 'Rejected' ? 'Request rejected' : event.eventType === 'Archived' ? 'Request archived' : event.previousStatus ? `Moved to ${event.newStatus}` : 'Request submitted';
+          return `<li class="${escapeHtml(String(event.eventType || '').toLowerCase())}"><div class="timeline-head"><span>${escapeHtml(label)}</span><time>${escapeHtml(formatDate(event.changedAt))}</time></div><p class="timeline-meta">By ${escapeHtml(event.actor)}${event.previousStatus && event.previousStatus !== event.newStatus ? ` · ${escapeHtml(event.previousStatus)} → ${escapeHtml(event.newStatus)}` : ''}</p>${event.note ? `<p class="timeline-note">${escapeHtml(event.note)}</p>` : ''}</li>`;
+        })
+        .join('')
+    : '<li>No history has been recorded yet.</li>';
+}
+function renderDetails(request) {
+  detail = request;
+  $('#details-view').hidden = false;
+  $('#detail-title').textContent = request.campaignReference;
+  $('#detail-subtitle').textContent = `Request #${request.id} · Created ${formatDate(request.createdAt)}`;
+  $('#detail-badge').innerHTML = statusPill(statusLabel(request));
+  statusTrack(request);
+  const fields = [
+    ['Request ID', `#${request.id}`],
+    ['Customer', request.customerId],
+    ['Category', request.category],
+    ['Priority', request.priority],
+    ['Assignee', request.assignee || 'Not assigned'],
+    ['Description', request.description],
+    ['Submitted', formatDate(request.createdAt)],
+    ['Last updated', formatDate(request.updatedAt)],
+    ...(request.rejectedAt
+      ? [
+          ['Rejected by', request.rejectedBy],
+          ['Reason', request.rejectionReason],
+        ]
+      : []),
+    ...(request.deletedAt
+      ? [
+          ['Archived by', request.deletedBy],
+          ['Archived at', formatDate(request.deletedAt)],
+        ]
+      : []),
+  ];
+  $('#detail-fields').innerHTML = fields.map(([name, value]) => `<dt>${escapeHtml(name)}</dt><dd>${escapeHtml(value)}</dd>`).join('');
+  renderHistory(request.history);
+  if (currentUser().role !== 'Coordinator') return;
+  const isClosed = Boolean(request.rejectedAt || request.deletedAt);
+  $('#update-form').hidden = isClosed;
+  const next = nextStatus(reference.statuses, request.status);
+  const advance = $('#advance-button');
+  advance.hidden = !next;
+  advance.textContent = `Move to ${next} →`;
+  $('#update-form [name="assignee"]').value = request.assignee || '';
+  $('#reject-button').hidden = isClosed || request.status !== 'Submitted';
+  $('#delete-button').hidden = isClosed || request.status !== 'Completed';
+  $('.danger-zone').hidden = isClosed || (request.status !== 'Submitted' && request.status !== 'Completed');
+}
+async function getDetails(id) {
+  const request = await api(`/api/requests/${encodeURIComponent(id)}`);
+  renderDetails(request);
+  connection(true);
+}
+function confirmAction(kind) {
+  const dialog = $('#confirm-dialog');
+  const isReject = kind === 'reject';
+  $('#modal-title').textContent = isReject ? 'Reject this request?' : 'Remove from the active queue?';
+  $('#modal-description').textContent = isReject ? 'This marks the request as rejected and notifies viewers through the recorded reason. Its status history remains visible.' : 'Completed requests are moved to the archive, not permanently erased. History remains available for review.';
+  $('#reason-label').hidden = !isReject;
+  $('#rejection-reason').required = isReject;
+  $('#rejection-reason').value = '';
+  $('#confirm-action').textContent = isReject ? 'Reject request' : 'Archive request';
+  $('#confirm-dialog').dataset.action = kind;
+  dialog.showModal();
+  if (isReject) $('#rejection-reason').focus();
+}
+function initDetailActions() {
+  populateSelect($('#update-form [name="assignee"]'), reference.staff, 'Choose a staff member');
+  $('#update-form').addEventListener('submit', async (event) => {
     event.preventDefault();
+    const button = event.submitter;
+    const payload = {};
+    const assignee = $('#update-form [name="assignee"]').value;
+    if (assignee) payload.assignee = assignee;
+    if (button.value === 'advance') payload.status = nextStatus(reference.statuses, detail.status);
+    button.disabled = true;
     try {
-      const created = await api('/api/requests', {
-        method: 'POST',
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
-      });
-      location.href = `index.html?id=${created.id}`;
-    } catch (err) {
-      showMessage(err.message, true);
+      renderDetails(await api(`/api/requests/${detail.id}`, { method: 'PATCH', body: JSON.stringify(payload) }));
+      showMessage('Request updated successfully.');
+    } catch (error) {
+      showMessage(error.message, true);
+    } finally {
+      button.disabled = false;
     }
   });
-  autoTour();
-}
-
-/* ── Boot ──────────────────────────────────────────────────── */
-async function init() {
-  const data = await (await fetch(DATA_URL)).json();
-  users = data.users;
-  await Promise.all([loadComponent('site-nav', 'Assets/Components/Navigation.html'), loadComponent('site-footer', 'Assets/Components/Footer.html')]);
-
-  setupUserPicker();
-
-  // Initialise API environment selector after navigation loads.
-  const apiSelector = document.getElementById('api-environment-select');
-
-  if (apiSelector) {
-    apiSelector.value = activeApiMode;
-
-    apiSelector.addEventListener('change', (event) => {
-      window.switchApiEnvironment(event.target.value);
-    });
-  }
-  document.getElementById('tour-button').addEventListener('click', () => startTour(tourName));
-
-  const page = document.body.dataset.page;
-  if (page === 'requests') initRequestsPage(data);
-  if (page === 'submit') initSubmitPage(data);
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    nextStatus,
-    buildQuery,
-    escapeHtml,
-    tourCardPosition,
-  };
-}
-
-
-
-// Only run browser code when a browser document exists.
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', init);
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initXyberOverlay();
+  $('#reject-button').addEventListener('click', () => confirmAction('reject'));
+  $('#delete-button').addEventListener('click', () => confirmAction('archive'));
+  $('#cancel-action').addEventListener('click', () => $('#confirm-dialog').close());
+  $('#confirm-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const kind = $('#confirm-dialog').dataset.action;
+    const button = $('#confirm-action');
+    button.disabled = true;
+    try {
+      const request = kind === 'reject' ? await api(`/api/requests/${detail.id}/reject`, { method: 'POST', body: JSON.stringify({ reason: $('#rejection-reason').value.trim() }) }) : await api(`/api/requests/${detail.id}`, { method: 'DELETE' });
+      $('#confirm-dialog').close();
+      renderDetails(request);
+      showMessage(kind === 'reject' ? 'Request rejected, with an auditable reason.' : 'Completed request archived. Its history is preserved.');
+    } catch (error) {
+      showMessage(error.message, true);
+    } finally {
+      button.disabled = false;
+    }
   });
 }
+async function initDetail(id) {
+  initDetailActions();
+  await getDetails(id);
+}
+function initSubmit() {
+  const form = $('#submit-form');
+  populateSelect(form.elements.category, reference.categories, 'Select a format');
+  populateSelect(form.elements.priority, reference.priorities);
+  form.elements.priority.value = 'Normal';
+  const description = form.elements.description;
+  description.addEventListener('input', () => {
+    $('#character-count').textContent = `${description.value.length} / 1000 characters`;
+  });
+  if (currentUser().role !== 'Customer') {
+    form.hidden = true;
+    showMessage('Only customers can submit requests. Switch to a customer demo account in the top-right menu.', true);
+  }
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      const created = await api('/api/requests', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(form))) });
+      location.href = `index.html?id=${encodeURIComponent(created.id)}`;
+    } catch (error) {
+      showMessage(error.message, true);
+      button.disabled = false;
+    }
+  });
+}
+async function refreshPage() {
+  if (document.body.dataset.page !== 'requests') return;
+  const id = new URLSearchParams(location.search).get('id');
+  if (id) await getDetails(id);
+  else await loadList();
+}
+async function init() {
+  try {
+    reference = await (await fetch(DATA_URL)).json();
+    users = reference.users;
+    await Promise.all([loadComponent('#site-nav', 'Navigation.html'), loadComponent('#site-footer', 'Footer.html')]);
+    initNavigation();
+    if (document.body.dataset.page === 'submit') initSubmit();
+    else {
+      const id = new URLSearchParams(location.search).get('id');
+      if (id) await initDetail(id);
+      else await initList();
+    }
+    // Submission screen also needs connection feedback when API is unreachable.
+    if (document.body.dataset.page === 'submit')
+      checkHealth()
+        .then(() => connection(true))
+        .catch(() => connection(false));
+  } catch (error) {
+    connection(false);
+    showMessage(`Unable to initialise portal: ${error.message}`, true);
+  }
+}
+document.addEventListener('DOMContentLoaded', init);

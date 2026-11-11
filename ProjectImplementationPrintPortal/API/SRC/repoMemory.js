@@ -5,9 +5,9 @@
 
 // Synthetic demo accounts (mirrors the seed in 001CreatePrintRequest.sql).
 const DEMO_USERS = [
-  { id: "customer-a", role: "Customer" },
-  { id: "customer-b", role: "Customer" },
-  { id: "coordinator", role: "Coordinator" },
+  { id: 'customer-a', role: 'Customer' },
+  { id: 'customer-b', role: 'Customer' },
+  { id: 'coordinator', role: 'Coordinator' },
 ];
 
 function createMemoryRepo(users = DEMO_USERS) {
@@ -17,8 +17,13 @@ function createMemoryRepo(users = DEMO_USERS) {
 
   const now = () => new Date().toISOString();
   const copy = (row) => ({ ...row });
-  const matches = (request, filters) =>
-    Object.entries(filters).every(([key, value]) => !value || request[key] === value);
+  const matches = (request, filters) => {
+    const view = filters.view || 'active';
+    if (view === 'active' && (request.deletedAt || request.rejectedAt)) return false;
+    if (view === 'rejected' && (!request.rejectedAt || request.deletedAt)) return false;
+    if (view === 'archived' && !request.deletedAt) return false;
+    return Object.entries(filters).every(([key, value]) => key === 'view' || !value || request[key] === value);
+  };
 
   return {
     async ping() {},
@@ -28,7 +33,10 @@ function createMemoryRepo(users = DEMO_USERS) {
     },
 
     async listRequests(filters = {}) {
-      return requests.filter((r) => matches(r, filters)).reverse().map(copy);
+      return requests
+        .filter((r) => matches(r, filters))
+        .reverse()
+        .map(copy);
     },
 
     async getRequest(id) {
@@ -42,9 +50,9 @@ function createMemoryRepo(users = DEMO_USERS) {
 
     async createRequest(fields, actor) {
       const ts = now();
-      const request = { id: nextId++, ...fields, status: "Submitted", assignee: null, createdAt: ts, updatedAt: ts };
+      const request = { id: nextId++, ...fields, status: 'Submitted', assignee: null, rejectedAt: null, rejectedBy: null, rejectionReason: null, deletedAt: null, deletedBy: null, createdAt: ts, updatedAt: ts };
       requests.push(request);
-      history.push({ requestId: request.id, previousStatus: null, newStatus: "Submitted", actor, changedAt: ts });
+      history.push({ requestId: request.id, previousStatus: null, newStatus: 'Submitted', actor, changedAt: ts, eventType: 'Status', note: null });
       return copy(request);
     },
 
@@ -52,9 +60,25 @@ function createMemoryRepo(users = DEMO_USERS) {
       const request = requests.find((r) => r.id === id);
       const ts = now();
       if (changes.status && changes.status !== request.status) {
-        history.push({ requestId: id, previousStatus: request.status, newStatus: changes.status, actor, changedAt: ts });
+        history.push({ requestId: id, previousStatus: request.status, newStatus: changes.status, actor, changedAt: ts, eventType: 'Status', note: null });
       }
       Object.assign(request, changes, { updatedAt: ts });
+      return copy(request);
+    },
+
+    async rejectRequest(id, reason, actor) {
+      const request = requests.find((r) => r.id === id);
+      const ts = now();
+      Object.assign(request, { rejectedAt: ts, rejectedBy: actor, rejectionReason: reason, updatedAt: ts });
+      history.push({ requestId: id, previousStatus: request.status, newStatus: request.status, actor, changedAt: ts, eventType: 'Rejected', note: reason });
+      return copy(request);
+    },
+
+    async archiveRequest(id, actor) {
+      const request = requests.find((r) => r.id === id);
+      const ts = now();
+      Object.assign(request, { deletedAt: ts, deletedBy: actor, updatedAt: ts });
+      history.push({ requestId: id, previousStatus: request.status, newStatus: request.status, actor, changedAt: ts, eventType: 'Archived', note: 'Moved to archive' });
       return copy(request);
     },
   };

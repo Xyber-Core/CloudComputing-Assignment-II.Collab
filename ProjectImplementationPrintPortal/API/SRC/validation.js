@@ -44,6 +44,8 @@ function validateNewRequest(body = {}) {
 function validateUpdate(current, body = {}) {
   const changes = {};
   const errors = [];
+  if (current.rejectedAt) return { changes, errors: ["Rejected requests cannot be updated."] };
+  if (current.deletedAt) return { changes, errors: ["Archived requests cannot be updated."] };
 
   if (body.assignee !== undefined) {
     const assignee = text(body.assignee);
@@ -69,7 +71,7 @@ function validateUpdate(current, body = {}) {
 function validateFilters(query = {}) {
   const filters = {};
   const errors = [];
-  for (const [key, allowed] of [["status", STATUSES], ["category", CATEGORIES], ["priority", PRIORITIES]]) {
+  for (const [key, allowed] of [["status", STATUSES], ["category", CATEGORIES], ["priority", PRIORITIES], ["view", ["active", "rejected", "archived", "all"]]]) {
     if (!query[key]) continue;
     if (allowed.includes(query[key])) filters[key] = query[key];
     else errors.push(`Filter ${key} must be one of: ${oneOf(allowed)}.`);

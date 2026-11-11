@@ -1,0 +1,20 @@
+# Dependencies are installed by npm ci in CI; never commit or publish them.
+**/node_modules/
+**/.wrangler/
+**/dist/
+**/build/
+**/coverage/
+**/.cache/
+**/.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!*.env.example
+!dev.env
+*.local
+*.log
+.DS_Store
+Thumbs.db
+# Local demo artifacts (no customer data in Git)
+ProjectImplementationPrintPortal/API/Data/*.sqlite
+ProjectImplementationPrintPortal/API/Data/*.db
