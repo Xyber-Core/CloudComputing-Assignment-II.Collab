@@ -178,6 +178,26 @@
             <div class="modal-actions"><button value="cancel" type="button" class="button button-subtle" id="cancel-action">Cancel</button><button value="confirm" type="submit" class="button button-danger" id="confirm-action">Confirm</button></div>
           </form>
         </dialog>
+
+        <!-- Dynamic request templates keep repeated UI markup in HTML and data in JavaScript. -->
+        <template id="request-row-template">
+          <tr>
+            <td><a data-field="request-link"><span class="request-name" data-field="campaign"></span><span class="request-id" data-field="request-id"></span></a></td>
+            <td data-field="category"></td>
+            <td><span class="priority" data-field="priority"></span></td>
+            <td><span class="status" data-field="status"></span></td>
+            <td data-field="assignee"></td>
+            <td data-field="updated"></td>
+            <td><a class="row-arrow" data-field="open-link" aria-label="Open request">↗</a></td>
+          </tr>
+        </template>
+        <template id="request-mobile-template">
+          <a class="request-mobile-card" data-field="request-link">
+            <div class="mobile-card-top"><strong data-field="campaign"></strong><span class="status" data-field="status"></span></div>
+            <div class="mobile-card-meta"><span data-field="request-id"></span><span aria-hidden="true">·</span><span data-field="category"></span><span aria-hidden="true">·</span><span class="priority" data-field="priority"></span></div>
+            <div class="mobile-card-bottom"><span data-field="assignee"></span><span data-field="updated"></span></div>
+          </a>
+        </template>
       </main>
       <footer id="site-footer" class="site-footer"></footer>
     </div>

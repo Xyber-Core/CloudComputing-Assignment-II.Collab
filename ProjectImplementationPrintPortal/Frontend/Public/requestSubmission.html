@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="./Assets/CSS/Stylesheet.css" />
   </head>
   <body data-page="submit">
+    <!-- App.js fills the shared navigation/footer and wires the submission form. -->
     <a class="skip-link" href="#main-content">Skip to content</a>
     <div id="site-nav"></div>
     <div class="workspace">
@@ -22,6 +23,7 @@
             <p class="lead">Tell us the essentials. We'll take it from there.</p>
           </div>
         </div>
+        <!-- Form content and supporting information use the shared glass-panel styles. -->
         <div class="submit-layout">
           <section class="glass form-card">
             <div class="form-card-header">
@@ -39,10 +41,10 @@
               ><label
                 >Priority <span class="select-wrap"><select name="priority" required></select></span></label
               ><button type="submit" class="button button-primary form-submit">Send print request <span aria-hidden="true">↗</span></button>
-              <p class="form-note">Artwork is sent separately through the existing offline process.</p>
+              <p class="form-note u-muted">Artwork is sent separately through the existing offline process.</p>
             </form>
           </section>
-          <aside class="submit-aside">
+          <aside class="submit-aside u-stack">
             <div class="aside-feature glass">
               <div class="feature-symbol" aria-hidden="true">✺</div>
               <span class="eyebrow">MADE FOR COMMUNITIES</span>

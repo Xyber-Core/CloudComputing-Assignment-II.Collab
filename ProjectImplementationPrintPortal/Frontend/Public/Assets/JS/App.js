@@ -5,6 +5,9 @@ import { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 import { API_BASES, defaultApiMode } from './api-config.js';
 export { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 
+/* ========================================================================== */
+/* Configuration and shared application state                                 */
+/* ========================================================================== */
 const DATA_URL = './Assets/JSON/Data.json';
 const USER_KEY = 'printportal-user';
 const API_KEY = 'printportal-api-mode';
@@ -13,9 +16,13 @@ const $ = (selector) => document.querySelector(selector);
 let users = [];
 let reference = {};
 let detail = null;
+let apiOnline = false;
 let apiMode = safeGet(API_KEY) || defaultApiMode(location.hostname);
 if (!API_BASES[apiMode]) apiMode = defaultApiMode(location.hostname);
 
+/* ========================================================================== */
+/* Environment, storage and formatting helpers                                */
+/* ========================================================================== */
 function apiOrigin() {
   if (apiMode === 'local' && ['localhost', '127.0.0.1'].includes(location.hostname)) {
     return `${location.protocol}//${location.hostname}:3000`;
@@ -66,12 +73,42 @@ function clearMessage() {
 function setLoading(loading) {
   const el = $('#list-loading');
   if (el) el.hidden = !loading;
+  $('#requests-surface')?.setAttribute('aria-busy', String(Boolean(loading)));
+  const refresh = $('#refresh-button');
+  if (refresh) refresh.disabled = Boolean(loading);
 }
+// Keep the topbar, sidebar and diagnostics panel in sync with the last health check.
 function connection(online) {
-  $('#connection-indicator')?.classList.toggle('offline', !online);
+  apiOnline = Boolean(online);
+  $('#connection-indicator')?.classList.toggle('offline', !apiOnline);
   const text = $('#connection-text');
-  if (text) text.textContent = `${apiMode === 'local' ? 'Local' : 'Cloud'} ${online ? 'connected' : 'offline'}`;
+  if (text) text.textContent = `${apiMode === 'local' ? 'Local' : 'Cloud'} ${apiOnline ? 'connected' : 'offline'}`;
+  const sidebarState = $('#sidebar-api-state');
+  if (sidebarState) {
+    sidebarState.textContent = apiOnline ? 'Online' : 'Offline';
+    sidebarState.classList.toggle('is-offline', !apiOnline);
+  }
+  updateDiagnostics();
 }
+
+// Diagnostics are deliberately read-only and never include credentials or request headers.
+function updateDiagnostics() {
+  const user = currentUser();
+  const provider = $('#diagnostic-provider');
+  const health = $('#diagnostic-health');
+  const account = $('#diagnostic-account');
+  const page = $('#diagnostic-page');
+  const endpoint = $('#diagnostic-endpoint');
+  if (provider) provider.textContent = apiMode === 'local' ? 'Local Express' : 'Cloudflare Worker';
+  if (health) {
+    health.textContent = apiOnline ? 'Connected' : 'Offline / not checked';
+    health.classList.toggle('is-offline', !apiOnline);
+  }
+  if (account) account.textContent = user ? `${user.name} · ${user.role}` : 'Unknown';
+  if (page) page.textContent = document.body.dataset.page === 'submit' ? 'New request' : new URLSearchParams(location.search).has('id') ? 'Request details' : 'Overview';
+  if (endpoint) endpoint.textContent = apiOrigin() || 'Not configured';
+}
+
 async function api(path, options = {}) {
   const response = await fetch(`${apiOrigin()}${path}`, {
     ...options,
@@ -91,10 +128,27 @@ function populateSelect(element, items, placeholder) {
   element.innerHTML = [...(placeholder === undefined ? [] : [`<option value="">${escapeHtml(placeholder)}</option>`]), ...items.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)].join('');
 }
 async function loadComponent(selector, path) {
+  const target = $(selector);
+  if (!target) throw new Error(`Component mount point ${selector} was not found.`);
   const response = await fetch(`./Assets/Components/${path}`);
-  if (!response.ok) throw new Error(`Unable to load ${path}`);
-  $(selector).innerHTML = await response.text();
+  if (!response.ok) throw new Error(`Unable to load ${path} (${response.status}).`);
+  target.innerHTML = await response.text();
 }
+
+function showDialog(dialog) {
+  if (dialog && !dialog.open) dialog.showModal();
+}
+
+function closeOnBackdrop(dialog) {
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+}
+
+function isTypingTarget(target) {
+  return Boolean(target?.closest('input, textarea, select, [contenteditable="true"]'));
+}
+
 function setRoles() {
   const role = currentUser().role;
   document.querySelectorAll('[data-role]').forEach((el) => {
@@ -104,75 +158,178 @@ function setRoles() {
   if (account) account.textContent = currentUser().name;
 }
 function initNavigation() {
-  populateSelect(
-    $('#user-select'),
-    users.map((u) => u.id),
-  );
-  // User picker shows friendly role and name while retaining the synthetic ID.
-  $('#user-select').innerHTML = users.map((u) => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.name)} · ${escapeHtml(u.role)}</option>`).join('');
-  $('#user-select').value = currentUser().id;
-  $('#user-select').addEventListener('change', (event) => {
-    safeSet(USER_KEY, event.target.value);
-    location.reload();
-  });
-  $('#api-environment-select').value = apiMode;
-  $('#api-environment-select').addEventListener('change', async (event) => {
-    const desired = event.target.value;
-    if (desired === apiMode) return;
-    const previous = apiMode;
-    apiMode = desired;
-    clearMessage();
-    try {
-      await checkHealth();
-      await refreshPage();
-      safeSet(API_KEY, apiMode);
-      connection(true);
-      showMessage(`Switched to the ${apiMode === 'cloud' ? 'Cloudflare Worker' : 'local Express'} API.`);
-    } catch (error) {
-      apiMode = previous;
-      event.target.value = previous;
-      connection(false);
-      showMessage(`Could not connect to ${desired}: ${error.message}`, true);
-    }
-  });
+  // Build the demo account menu once; the selected ID remains a local demo preference.
+  const userSelect = $('#user-select');
+  if (userSelect) {
+    userSelect.innerHTML = users
+      .map((user) => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} · ${escapeHtml(user.role)}</option>`)
+      .join('');
+    userSelect.value = currentUser().id;
+    userSelect.addEventListener('change', (event) => {
+      safeSet(USER_KEY, event.target.value);
+      location.reload();
+    });
+  }
+
+  // Azure is intentionally a disabled placeholder until its API is implemented.
+  const apiSelect = $('#api-environment-select');
+  if (apiSelect) {
+    apiSelect.value = apiMode;
+    apiSelect.addEventListener('change', async (event) => {
+      const desired = event.target.value;
+      if (desired === apiMode) return;
+      if (!API_BASES[desired]) {
+        event.target.value = apiMode;
+        showMessage('Azure API is planned but is not connected in this version.', true);
+        return;
+      }
+
+      const previous = apiMode;
+      apiMode = desired;
+      clearMessage();
+      apiSelect.disabled = true;
+      try {
+        await checkHealth();
+        await refreshPage();
+        safeSet(API_KEY, apiMode);
+        connection(true);
+        showMessage(`Switched to the ${apiMode === 'cloud' ? 'Cloudflare Worker' : 'local Express'} API.`);
+      } catch (error) {
+        apiMode = previous;
+        apiSelect.value = previous;
+        connection(false);
+        showMessage(`Could not connect to ${desired}: ${error.message}`, true);
+      } finally {
+        apiSelect.disabled = false;
+        updateDiagnostics();
+      }
+    });
+  }
+
+  // Apply the optional playful font preference across the full interface.
   const isSilly = safeGet(FONT_KEY) === 'yes';
   document.body.classList.toggle('silly-type', isSilly);
   const fontButton = $('#fun-font-button');
-  fontButton.setAttribute('aria-pressed', String(isSilly));
-  $('#font-state').textContent = isSilly ? 'On' : 'Off';
-  fontButton.addEventListener('click', () => {
-    const active = document.body.classList.toggle('silly-type');
-    safeSet(FONT_KEY, active ? 'yes' : 'no');
-    fontButton.setAttribute('aria-pressed', String(active));
-    $('#font-state').textContent = active ? 'On' : 'Off';
-  });
+  if (fontButton) {
+    fontButton.setAttribute('aria-pressed', String(isSilly));
+    $('#font-state').textContent = isSilly ? 'On' : 'Off';
+    fontButton.addEventListener('click', () => {
+      const active = document.body.classList.toggle('silly-type');
+      safeSet(FONT_KEY, active ? 'yes' : 'no');
+      fontButton.setAttribute('aria-pressed', String(active));
+      $('#font-state').textContent = active ? 'On' : 'Off';
+    });
+  }
+
+  // Highlight the current page and the selected coordinator queue view.
+  const query = new URLSearchParams(location.search);
+  const selectedView = query.get('status') === 'Completed' ? 'completed' : query.get('view') || 'active';
   document.querySelectorAll('[data-nav]').forEach((link) => {
-    const active = link.dataset.nav === (document.body.dataset.page === 'submit' ? 'submit' : 'requests');
+    const pageMatches = link.dataset.nav === (document.body.dataset.page === 'submit' ? 'submit' : 'requests');
+    const viewMatches = !link.dataset.navView || link.dataset.navView === selectedView;
+    const active = pageMatches && viewMatches;
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
   });
-  $('#topbar-section').textContent = document.body.dataset.page === 'submit' ? 'New request' : 'Overview';
+  const section = $('#topbar-section');
+  if (section) section.textContent = document.body.dataset.page === 'submit' ? 'New request' : query.has('id') ? 'Request details' : 'Overview';
+
+  // Mobile navigation is a native dialog, so Escape and focus handling are built in.
   const menu = $('#mobile-menu');
   const toggle = $('#menu-toggle');
-  toggle.addEventListener('click', () => {
-    menu.showModal();
+  toggle?.addEventListener('click', () => {
+    showDialog(menu);
     toggle.setAttribute('aria-expanded', 'true');
   });
-  $('#close-mobile-menu').addEventListener('click', () => menu.close());
-  menu.addEventListener('close', () => toggle.setAttribute('aria-expanded', 'false'));
-  menu.addEventListener('click', (event) => {
-    if (event.target === menu) menu.close();
-  });
+  $('#close-mobile-menu')?.addEventListener('click', () => menu?.close());
+  menu?.addEventListener('close', () => toggle?.setAttribute('aria-expanded', 'false'));
+  closeOnBackdrop(menu);
+
+  // Close the account popover when the user clicks elsewhere on the page.
   document.addEventListener('click', (event) => {
     const settings = $('#settings-menu');
     if (settings?.open && !settings.contains(event.target)) settings.open = false;
   });
-  // Load the credits overlay only when requested. Both navigation layouts can open it.
+
+  // System status and quick guide are available from both desktop and mobile navigation.
+  const statusDialog = $('#system-status-dialog');
+  const guideDialog = $('#guide-dialog');
+  const openStatus = () => {
+    updateDiagnostics();
+    showDialog(statusDialog);
+  };
+  const openGuide = () => showDialog(guideDialog);
+  ['#system-status-button', '#mobile-system-status-button', '#connection-indicator'].forEach((selector) => {
+    $(selector)?.addEventListener('click', () => {
+      menu?.close();
+      openStatus();
+    });
+  });
+  ['#guide-button', '#mobile-guide-button'].forEach((selector) => {
+    $(selector)?.addEventListener('click', () => {
+      menu?.close();
+      openGuide();
+    });
+  });
+  ['#close-system-status', '#close-system-status-footer'].forEach((selector) => {
+    $(selector)?.addEventListener('click', () => statusDialog?.close());
+  });
+  $('#close-guide')?.addEventListener('click', () => guideDialog?.close());
+  $('#close-guide-footer')?.addEventListener('click', () => guideDialog?.close());
+  closeOnBackdrop(statusDialog);
+  closeOnBackdrop(guideDialog);
+
+  // A manual health check helps teammates diagnose API connectivity without exposing secrets.
+  $('#diagnostic-refresh')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Checking…';
+    try {
+      await checkHealth();
+      connection(true);
+    } catch (error) {
+      connection(false);
+      showMessage(`API health check failed: ${error.message}`, true);
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Check connection ↻';
+      updateDiagnostics();
+    }
+  });
+  $('#diagnostic-copy')?.addEventListener('click', async () => {
+    const safeSummary = [
+      `Provider: ${apiMode === 'local' ? 'Local Express' : 'Cloudflare Worker'}`,
+      `Endpoint: ${apiOrigin()}`,
+      `Connection: ${apiOnline ? 'Connected' : 'Offline / not checked'}`,
+      `Demo account: ${currentUser().name} (${currentUser().role})`,
+      `Page: ${document.body.dataset.page}`,
+      `Origin: ${location.origin}`,
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(safeSummary);
+      showMessage('Safe diagnostics copied. No credentials were included.');
+    } catch {
+      showMessage('Clipboard access is unavailable in this browser.');
+    }
+  });
+
+  // Keyboard helpers: ? opens the guide; Alt+Shift+D opens diagnostics.
+  document.addEventListener('keydown', (event) => {
+    if (isTypingTarget(event.target)) return;
+    if (event.key === '?' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      openGuide();
+    } else if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      openStatus();
+    }
+  });
+
+  // The existing credits overlay is initialised on demand and remains independently lazy-loaded.
   let overlayInitPromise;
   async function openCreditsOverlay() {
-    // A native dialog renders in the browser's top layer, above ordinary z-index overlays.
-    // Close the mobile menu before showing the custom credits modal.
-    if (menu?.open) menu.close();
+    menu?.close();
     try {
       if (!$('#xc-trigger')) {
         overlayInitPromise ??= import('./overlay.js')
@@ -191,49 +348,93 @@ function initNavigation() {
       showMessage(`Credits unavailable: ${error.message}`, true);
     }
   }
-  for (const selector of ['#about-button', '#mobile-about-button']) {
+  ['#about-button', '#mobile-about-button'].forEach((selector) => {
     $(selector)?.addEventListener('click', openCreditsOverlay);
-  }
+  });
 
-  // Automatically initialize the floating badge on every page.
+  // Preserve the existing floating XyberCore badge on both desktop and mobile.
   overlayInitPromise = import('./overlay.js')
     .then(({ initXyberOverlay }) => initXyberOverlay())
-    .catch(error => {
+    .catch((error) => {
       overlayInitPromise = undefined;
       console.error('Unable to initialise the floating credits badge:', error);
     });
 
+  updateDiagnostics();
   setRoles();
 }
+
 function renderStatistics(requests) {
   $('#stat-total').textContent = String(requests.length);
   $('#stat-progress').textContent = String(requests.filter((r) => r.status === 'In Progress' && !r.rejectedAt && !r.deletedAt).length);
   $('#stat-done').textContent = String(requests.filter((r) => r.status === 'Completed').length);
 }
+/* ========================================================================== */
+/* Dashboard list rendering and reusable request templates                    */
+/* ========================================================================== */
+function applyStatusClass(element, status) {
+  if (!element) return;
+  const token = String(status).toLowerCase().replaceAll(' ', '-');
+  element.className = `status status-${token}`;
+  element.textContent = status;
+}
+
+function applyPriorityClass(element, priority) {
+  if (!element) return;
+  element.className = `priority priority-${String(priority).toLowerCase()}`;
+  element.textContent = priority;
+}
+
+// Clone HTML templates so layout stays in HTML and request values stay in text nodes.
 function renderList(requests) {
   $('#result-count').textContent = String(requests.length);
-  const tbody = $('#request-rows'),
-    cards = $('#mobile-request-cards');
+  const tbody = $('#request-rows');
+  const cards = $('#mobile-request-cards');
+  const rowTemplate = $('#request-row-template');
+  const cardTemplate = $('#request-mobile-template');
+
   if (!requests.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty">No requests match these filters. Try clearing them.</td></tr>';
     cards.innerHTML = '<p class="empty">No requests match these filters. Try clearing them.</p>';
     return;
   }
-  tbody.innerHTML = requests
-    .map(
-      (r, index) => `<tr style="--i:${index}">
-    <td><a href="index.html?id=${encodeURIComponent(r.id)}"><span class="request-name">${escapeHtml(r.campaignReference)}</span><span class="request-id">#${escapeHtml(r.id)}</span></a></td>
-    <td>${escapeHtml(r.category)}</td><td><span class="priority priority-${escapeHtml(r.priority.toLowerCase())}">${escapeHtml(r.priority)}</span></td><td>${statusPill(statusLabel(r))}</td>
-    <td>${escapeHtml(r.assignee || 'Unassigned')}</td><td>${escapeHtml(formatDate(r.updatedAt))}</td><td><a class="row-arrow" href="index.html?id=${encodeURIComponent(r.id)}" aria-label="Open request ${escapeHtml(r.id)}">↗</a></td></tr>`,
-    )
-    .join('');
-  cards.innerHTML = requests
-    .map(
-      (r) =>
-        `<a class="request-mobile-card" href="index.html?id=${encodeURIComponent(r.id)}"><div class="mobile-card-top"><strong>${escapeHtml(r.campaignReference)}</strong>${statusPill(statusLabel(r))}</div><div class="mobile-card-meta"><span>#${escapeHtml(r.id)}</span><span>·</span><span>${escapeHtml(r.category)}</span><span>·</span><span class="priority priority-${escapeHtml(r.priority.toLowerCase())}">${escapeHtml(r.priority)}</span></div><div class="mobile-card-bottom"><span>${escapeHtml(r.assignee || 'Not assigned')}</span><span>${escapeHtml(formatDate(r.updatedAt))} ↗</span></div></a>`,
-    )
-    .join('');
+
+  const rowFragment = document.createDocumentFragment();
+  const cardFragment = document.createDocumentFragment();
+  requests.forEach((request, index) => {
+    const url = `index.html?id=${encodeURIComponent(request.id)}`;
+    const row = rowTemplate.content.firstElementChild.cloneNode(true);
+    const rowLink = row.querySelector('[data-field="request-link"]');
+    const openLink = row.querySelector('[data-field="open-link"]');
+    row.style.setProperty('--i', index);
+    rowLink.href = url;
+    rowLink.querySelector('[data-field="campaign"]').textContent = request.campaignReference;
+    rowLink.querySelector('[data-field="request-id"]').textContent = `#${request.id}`;
+    row.querySelector('[data-field="category"]').textContent = request.category;
+    applyPriorityClass(row.querySelector('[data-field="priority"]'), request.priority);
+    applyStatusClass(row.querySelector('[data-field="status"]'), statusLabel(request));
+    row.querySelector('[data-field="assignee"]').textContent = request.assignee || 'Unassigned';
+    row.querySelector('[data-field="updated"]').textContent = formatDate(request.updatedAt);
+    openLink.href = url;
+    openLink.setAttribute('aria-label', `Open request ${request.id}`);
+    rowFragment.append(row);
+
+    const card = cardTemplate.content.firstElementChild.cloneNode(true);
+    card.href = url;
+    card.querySelector('[data-field="campaign"]').textContent = request.campaignReference;
+    card.querySelector('[data-field="request-id"]').textContent = `#${request.id}`;
+    card.querySelector('[data-field="category"]').textContent = request.category;
+    applyPriorityClass(card.querySelector('[data-field="priority"]'), request.priority);
+    applyStatusClass(card.querySelector('[data-field="status"]'), statusLabel(request));
+    card.querySelector('[data-field="assignee"]').textContent = request.assignee || 'Not assigned';
+    card.querySelector('[data-field="updated"]').textContent = `${formatDate(request.updatedAt)} ↗`;
+    cardFragment.append(card);
+  });
+
+  tbody.replaceChildren(rowFragment);
+  cards.replaceChildren(cardFragment);
 }
+
 async function loadList() {
   const form = $('#filter-form');
   if (!form) return;
@@ -257,6 +458,17 @@ async function initList() {
   populateSelect($('#filter-form [name="status"]'), reference.statuses, 'All statuses');
   populateSelect($('#filter-form [name="category"]'), reference.categories, 'All categories');
   populateSelect($('#filter-form [name="priority"]'), reference.priorities, 'All priorities');
+
+  // Sidebar shortcuts use query parameters to open a pre-filtered coordinator queue.
+  const initialFilters = new URLSearchParams(location.search);
+  for (const name of ['view', 'status', 'category', 'priority']) {
+    const select = $(`#filter-form [name="${name}"]`);
+    const requested = initialFilters.get(name);
+    if (select && requested && [...select.options].some((option) => option.value === requested)) {
+      select.value = requested;
+    }
+  }
+
   $('#list-intro').textContent = currentUser().role === 'Coordinator' ? 'See every job, prioritise the queue and keep your team moving.' : 'An easier way to keep your community print jobs moving.';
   $('#welcome-note').textContent = currentUser().role === 'Coordinator' ? 'Your team has the whole picture.' : 'Your next community project starts here.';
   $('#filter-form').addEventListener('change', () => {
@@ -274,6 +486,9 @@ async function initList() {
   });
   await loadList();
 }
+/* ========================================================================== */
+/* Request details, history and coordinator actions                            */
+/* ========================================================================== */
 function statusTrack(request) {
   const position = reference.statuses.indexOf(request.status);
   $('#status-track').innerHTML = reference.statuses.map((step, i) => `<li class="${i < position ? 'passed' : i === position ? 'current' : ''}" ${i === position ? 'aria-current="step"' : ''}>${escapeHtml(step)}</li>`).join('');
@@ -392,6 +607,9 @@ async function initDetail(id) {
   initDetailActions();
   await getDetails(id);
 }
+/* ========================================================================== */
+/* Customer submission and application startup                                 */
+/* ========================================================================== */
 function initSubmit() {
   const form = $('#submit-form');
   populateSelect(form.elements.category, reference.categories, 'Select a format');
@@ -426,8 +644,11 @@ async function refreshPage() {
 }
 async function init() {
   try {
-    reference = await (await fetch(DATA_URL)).json();
-    users = reference.users;
+    const referenceResponse = await fetch(DATA_URL);
+    if (!referenceResponse.ok) throw new Error(`Unable to load reference data (${referenceResponse.status}).`);
+    reference = await referenceResponse.json();
+    users = reference.users || [];
+    if (!users.length) throw new Error('No demo accounts are configured in Data.json.');
     await Promise.all([loadComponent('#site-nav', 'Navigation.html'), loadComponent('#site-footer', 'Footer.html')]);
     initNavigation();
     if (document.body.dataset.page === 'submit') initSubmit();

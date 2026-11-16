@@ -1,3 +1,9 @@
+/* ==========================================================================
+   SHARED FRONTEND HELPERS
+   Pure functions used by the dashboard and its unit tests.
+   ========================================================================== */
+
+/* 01 · Request workflow helpers */
 export function nextStatus(statuses, current) {
     const index = statuses.indexOf(current);
     return index === -1 || index === statuses.length - 1
@@ -5,6 +11,7 @@ export function nextStatus(statuses, current) {
         : statuses[index + 1];
 }
 
+/* Convert active filter values into a URL query string. */
 export function buildQuery(filters) {
     const params = new URLSearchParams();
 
@@ -16,6 +23,7 @@ export function buildQuery(filters) {
     return query ? `?${query}` : '';
 }
 
+/* Escape text before placing it into an HTML string. Prefer textContent for DOM updates. */
 export function escapeHtml(value) {
     if (value == null) return '';
 
@@ -28,6 +36,7 @@ export function escapeHtml(value) {
     })[character]);
 }
 
+/* Keep an onboarding tooltip inside the visible browser viewport. */
 export function tourCardPosition(highlight, card, viewport) {
     const margin = 12;
     const gap = 12;

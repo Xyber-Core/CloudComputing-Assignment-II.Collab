@@ -95,6 +95,7 @@ export async function initXyberOverlay() {
             name: 'Shatha Abid Ali',
             role: 'Coordination & Cloud Infrastructure',
             badge: 'Cloud / coordination',
+            logo: './Assets/Images/Shatha.webp',
             color: 'rgba(74, 211, 252, .18)',
             description: 'Coordinates team delivery and leads the planned cloud infrastructure work.',
           },
