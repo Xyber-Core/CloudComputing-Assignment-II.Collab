@@ -6,9 +6,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node ProjectImplementationPrintPortal/API/server.js",
-    "test": "node --test \"ProjectImplementationPrintPortal/API/Test/test.js\" \"ProjectImplementationPrintPortal/Frontend/Test/**/*.test.js\""
+    "test": "node --test \"ProjectImplementationPrintPortal/API/Test/test.js\" \"ProjectImplementationPrintPortal/Frontend/Test/**/*.test.js\"",
+    "config:local": "node scripts/generate-public-config.cjs",
+    "config:ci": "node scripts/generate-public-config.cjs --ci",
+    "start:dev": "npm run config:local && npm start"
   },
   "dependencies": {
     "express": "^5.1.0"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
