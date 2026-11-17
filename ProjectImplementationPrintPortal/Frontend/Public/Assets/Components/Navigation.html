@@ -85,11 +85,12 @@
             <select id="api-environment-select" aria-label="API environment">
               <option value="cloud">☁ Cloudflare Worker</option>
               <option value="local">⌘ Local Express</option>
-              <option value="azure" disabled>◇ Azure API · Coming soon</option>
+              <option value="azure">◇ Azure App Service</option>
+              <option value="azure-class" disabled>◇ Azure · class deployment (not configured)</option>
             </select>
           </span>
         </label>
-        <p class="popover-note">Azure is shown as a planned target only; it is not connected in this demo.</p>
+        <p class="popover-note" id="api-environment-note">Choose a hosting provider to open its website and associated API.</p>
         <div class="popover-divider"></div>
         <button id="fun-font-button" type="button" class="fun-font-toggle" aria-pressed="false">☺ Silly font mode <span id="font-state">Off</span></button>
       </div>

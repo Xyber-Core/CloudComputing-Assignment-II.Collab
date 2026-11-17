@@ -2,7 +2,7 @@
  * UI state is transient; API authorization is enforced by the server, not the DOM.
  */
 import { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
-import { API_BASES, defaultApiMode } from './api-config.js';
+import { API_LABELS, apiOriginFor, canUseMode, defaultApiMode, loadPublicConfig, navigationTarget } from './api-config.js';
 export { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 
 /* ========================================================================== */
@@ -10,24 +10,20 @@ export { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 /* ========================================================================== */
 const DATA_URL = './Assets/JSON/Data.json';
 const USER_KEY = 'printportal-user';
-const API_KEY = 'printportal-api-mode';
 const FONT_KEY = 'printportal-silly-type';
 const $ = (selector) => document.querySelector(selector);
 let users = [];
 let reference = {};
 let detail = null;
 let apiOnline = false;
-let apiMode = safeGet(API_KEY) || defaultApiMode(location.hostname);
-if (!API_BASES[apiMode]) apiMode = defaultApiMode(location.hostname);
+// The active deployment hostname determines the API; no stale cross-site preference.
+let apiMode = defaultApiMode(location.hostname);
 
 /* ========================================================================== */
 /* Environment, storage and formatting helpers                                */
 /* ========================================================================== */
 function apiOrigin() {
-  if (apiMode === 'local' && ['localhost', '127.0.0.1'].includes(location.hostname)) {
-    return `${location.protocol}//${location.hostname}:3000`;
-  }
-  return API_BASES[apiMode];
+  return apiOriginFor(apiMode, location.origin);
 }
 function safeGet(key) {
   try {
@@ -82,7 +78,7 @@ function connection(online) {
   apiOnline = Boolean(online);
   $('#connection-indicator')?.classList.toggle('offline', !apiOnline);
   const text = $('#connection-text');
-  if (text) text.textContent = `${apiMode === 'local' ? 'Local' : 'Cloud'} ${apiOnline ? 'connected' : 'offline'}`;
+  if (text) text.textContent = `${API_LABELS[apiMode]} ${apiOnline ? 'connected' : 'offline'}`;
   const sidebarState = $('#sidebar-api-state');
   if (sidebarState) {
     sidebarState.textContent = apiOnline ? 'Online' : 'Offline';
@@ -99,7 +95,7 @@ function updateDiagnostics() {
   const account = $('#diagnostic-account');
   const page = $('#diagnostic-page');
   const endpoint = $('#diagnostic-endpoint');
-  if (provider) provider.textContent = apiMode === 'local' ? 'Local Express' : 'Cloudflare Worker';
+  if (provider) provider.textContent = API_LABELS[apiMode];
   if (health) {
     health.textContent = apiOnline ? 'Connected' : 'Offline / not checked';
     health.classList.toggle('is-offline', !apiOnline);
@@ -171,38 +167,28 @@ function initNavigation() {
     });
   }
 
-  // Azure is intentionally a disabled placeholder until its API is implemented.
+  // Environment switch: navigate to the matching host so its API is same-origin.
+  // Cloudflare Pages is the exception: its frontend calls the allowed Worker URL.
   const apiSelect = $('#api-environment-select');
   if (apiSelect) {
+    for (const option of apiSelect.options) {
+      option.disabled = !canUseMode(option.value, location.hostname);
+    }
     apiSelect.value = apiMode;
-    apiSelect.addEventListener('change', async (event) => {
+    const note = $('#api-environment-note');
+    if (note) note.textContent = 'Selecting a provider opens its website in this tab. Each site uses its own API and data.';
+    apiSelect.addEventListener('change', (event) => {
       const desired = event.target.value;
       if (desired === apiMode) return;
-      if (!API_BASES[desired]) {
+      const target = navigationTarget(desired, location.href);
+      if (!target) {
         event.target.value = apiMode;
-        showMessage('Azure API is planned but is not connected in this version.', true);
+        showMessage('That environment has not been configured yet.', true);
         return;
       }
-
-      const previous = apiMode;
-      apiMode = desired;
-      clearMessage();
-      apiSelect.disabled = true;
-      try {
-        await checkHealth();
-        await refreshPage();
-        safeSet(API_KEY, apiMode);
-        connection(true);
-        showMessage(`Switched to the ${apiMode === 'cloud' ? 'Cloudflare Worker' : 'local Express'} API.`);
-      } catch (error) {
-        apiMode = previous;
-        apiSelect.value = previous;
-        connection(false);
-        showMessage(`Could not connect to ${desired}: ${error.message}`, true);
-      } finally {
-        apiSelect.disabled = false;
-        updateDiagnostics();
-      }
+      // Do not preflight a remote API here; it often creates a misleading CORS error.
+      // The destination page performs its own health check after loading.
+      location.assign(target);
     });
   }
 
@@ -299,7 +285,7 @@ function initNavigation() {
   });
   $('#diagnostic-copy')?.addEventListener('click', async () => {
     const safeSummary = [
-      `Provider: ${apiMode === 'local' ? 'Local Express' : 'Cloudflare Worker'}`,
+      `Provider: ${API_LABELS[apiMode]}`,
       `Endpoint: ${apiOrigin()}`,
       `Connection: ${apiOnline ? 'Connected' : 'Offline / not checked'}`,
       `Demo account: ${currentUser().name} (${currentUser().role})`,
@@ -644,6 +630,9 @@ async function refreshPage() {
 }
 async function init() {
   try {
+    // Read the public deployment map before choosing an API or loading controls.
+    await loadPublicConfig();
+    apiMode = defaultApiMode(location.hostname);
     const referenceResponse = await fetch(DATA_URL);
     if (!referenceResponse.ok) throw new Error(`Unable to load reference data (${referenceResponse.status}).`);
     reference = await referenceResponse.json();
