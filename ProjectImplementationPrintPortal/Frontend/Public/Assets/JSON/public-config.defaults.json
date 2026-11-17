@@ -1,0 +1,7 @@
+{
+  "cloudflareSite": "https://cloudcomputing-printportal.pages.dev",
+  "cloudflareApi": "https://printportal-worker.rikerhoch.workers.dev",
+  "azureSite": "https://wellingtionprint-dxhudcabe8hdhmee.japaneast-01.azurewebsites.net",
+  "azureClassSite": "",
+  "deploymentMode": "auto"
+}
