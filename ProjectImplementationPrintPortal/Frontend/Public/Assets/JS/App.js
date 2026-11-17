@@ -17,7 +17,7 @@ let reference = {};
 let detail = null;
 let apiOnline = false;
 // The active deployment hostname determines the API; no stale cross-site preference.
-let apiMode = defaultApiMode(location.hostname);
+let apiMode = ''; // Set after public-config.json loads; localhost defaults to Local Express.
 
 /* ========================================================================== */
 /* Environment, storage and formatting helpers                                */
@@ -106,7 +106,9 @@ function updateDiagnostics() {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(`${apiOrigin()}${path}`, {
+  const origin = apiOrigin();
+  if (!origin) throw new Error('API host is not configured for this website.');
+  const response = await fetch(`${origin}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', 'X-User-Id': currentUser().id, ...options.headers },
     signal: options.signal || AbortSignal.timeout(12000),
@@ -116,7 +118,9 @@ async function api(path, options = {}) {
   return data;
 }
 async function checkHealth() {
-  const response = await fetch(`${apiOrigin()}/api/health`, { signal: AbortSignal.timeout(7000) });
+  const origin = apiOrigin();
+  if (!origin) throw new Error('API host is not configured for this website.');
+  const response = await fetch(`${origin}/api/health`, { signal: AbortSignal.timeout(7000) });
   if (!response.ok) throw new Error(`API health check failed (${response.status})`);
 }
 function populateSelect(element, items, placeholder) {
@@ -176,7 +180,7 @@ function initNavigation() {
     }
     apiSelect.value = apiMode;
     const note = $('#api-environment-note');
-    if (note) note.textContent = 'Selecting a provider opens its website in this tab. Each site uses its own API and data.';
+    if (note) note.textContent = 'Local uses Express. Cloudflare uses its Worker. Azure uses its own /api. Changing providers opens that site.';
     apiSelect.addEventListener('change', (event) => {
       const desired = event.target.value;
       if (desired === apiMode) return;
@@ -633,6 +637,7 @@ async function init() {
     // Read the public deployment map before choosing an API or loading controls.
     await loadPublicConfig();
     apiMode = defaultApiMode(location.hostname);
+    if (!apiMode) throw new Error('This host is not assigned to an API. Check public-config.json.');
     const referenceResponse = await fetch(DATA_URL);
     if (!referenceResponse.ok) throw new Error(`Unable to load reference data (${referenceResponse.status}).`);
     reference = await referenceResponse.json();

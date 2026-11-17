@@ -1,20 +1,23 @@
 #!/usr/bin/env node
-/* Generate ONLY public URLs for the browser. No secrets are ever copied.
- * Local: npm run config:local   (reads API/dev.env)
- * CI:    npm run config:ci      (reads GitHub Actions PUBLIC_* vars)
- */
+/* ========================================================================== */
+/* Generate browser-safe URL config from local dev.env OR GitHub Actions vars. */
+/* Every run starts from defaults.json, never a previous Azure build artifact. */
+/* ========================================================================== */
 const fs = require('node:fs');
 const path = require('node:path');
-const ROOT = path.resolve(__dirname, '..');
-const output = path.join(ROOT, 'ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON/public-config.json');
-const devFile = path.join(ROOT, 'ProjectImplementationPrintPortal/API/dev.env');
-const fields = {
+const root = path.resolve(__dirname, '..');
+const directory = path.join(root, 'ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON');
+const defaultsPath = path.join(directory, 'public-config.defaults.json');
+const outputPath = path.join(directory, 'public-config.json');
+const devPath = path.join(root, 'ProjectImplementationPrintPortal/API/dev.env');
+
+const FIELDS = Object.freeze({
   PUBLIC_CLOUDFLARE_SITE_URL: 'cloudflareSite',
   PUBLIC_CLOUDFLARE_API_URL: 'cloudflareApi',
   PUBLIC_AZURE_SITE_URL: 'azureSite',
   PUBLIC_AZURE_CLASS_SITE_URL: 'azureClassSite',
   PUBLIC_DEPLOYMENT_MODE: 'deploymentMode',
-};
+});
 
 function parseEnvFile(content) {
   const result = {};
@@ -22,38 +25,52 @@ function parseEnvFile(content) {
     const match = line.match(/^\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=\s*(.*)\s*$/);
     if (!match) continue;
     const value = match[2].trim();
-    result[match[1]] = (/^(["']).*\1$/.test(value)) ? value.slice(1, -1) : value;
+    result[match[1]] = /^(".*"|'.*')$/.test(value) ? value.slice(1, -1) : value;
   }
   return result;
 }
 
-function validateOrigin(value, key) {
-  if (!value) return '';
+function origin(value, key) {
+  if (value === '') return '';
   let url;
   try { url = new URL(value); } catch { throw new Error(`${key} must be an absolute URL`); }
-  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const local = ['localhost','127.0.0.1','[::1]'].includes(url.hostname);
   if ((url.protocol !== 'https:' && !(local && url.protocol === 'http:')) ||
       url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error(`${key} must be a safe URL origin (HTTPS, no path/query/credentials)`);
+    throw new Error(`${key} must be an HTTPS origin without a path, query or credentials`);
   }
   return url.origin;
 }
 
-const fromFile = process.argv.includes('--ci') || !fs.existsSync(devFile)
-  ? {}
-  : parseEnvFile(fs.readFileSync(devFile, 'utf8'));
-const config = JSON.parse(fs.readFileSync(output, 'utf8'));
-for (const [envKey, field] of Object.entries(fields)) {
-  // GitHub environment/repository variables override developer-local settings.
-  const incoming = process.env[envKey]?.trim() || fromFile[envKey]?.trim();
-  const value = incoming === undefined ? config[field] : incoming;
-  if (field === 'deploymentMode') {
-    if (!['auto', 'cloud', 'azure', 'azure-class'].includes(value)) throw new Error('Invalid PUBLIC_DEPLOYMENT_MODE');
-    config[field] = value;
-  } else {
-    config[field] = validateOrigin(value, envKey);
+function generate(defaults, localValues = {}, vars = {}) {
+  const values = { ...defaults };
+  for (const [key, field] of Object.entries(FIELDS)) {
+    // An explicitly empty var intentionally disables an optional provider.
+    const input = Object.hasOwn(vars, key) ? vars[key]
+      : Object.hasOwn(localValues, key) ? localValues[key] : values[field];
+    if (field === 'deploymentMode') {
+      if (!['auto', 'cloud', 'azure', 'azure-class'].includes(input)) throw new Error('Invalid PUBLIC_DEPLOYMENT_MODE');
+      values[field] = input;
+    } else {
+      values[field] = origin(input, key);
+    }
   }
+  if (!values.cloudflareSite || !values.cloudflareApi) throw new Error('Both Cloudflare URLs must be configured');
+  if (values.deploymentMode === 'azure' && !values.azureSite) throw new Error('Azure site URL is required');
+  if (values.deploymentMode === 'azure-class' && !values.azureClassSite) throw new Error('Class Azure site URL is required');
+  return values;
 }
-if (!config.cloudflareSite || !config.cloudflareApi) throw new Error('Cloudflare public URLs must be configured');
-fs.writeFileSync(output, JSON.stringify(config, null, 2) + '\n');
-console.log('Validated browser-safe public endpoint configuration (no credentials).');
+
+if (require.main === module) {
+  // --ci means GitHub vars only. A private developer's dev.env is never read in CI.
+  const local = process.argv.includes('--ci') || !fs.existsSync(devPath)
+    ? {} : parseEnvFile(fs.readFileSync(devPath,'utf8'));
+  const env = Object.fromEntries(Object.keys(FIELDS)
+    .filter((key) => Object.hasOwn(process.env, key) && process.env[key] !== undefined)
+    .map((key) => [key, process.env[key]]));
+  const defaults = JSON.parse(fs.readFileSync(defaultsPath,'utf8'));
+  const config = generate(defaults, local, env);
+  fs.writeFileSync(outputPath, JSON.stringify(config,null,2)+'\n');
+  console.log(`Wrote browser-safe public config (${config.deploymentMode}); no tokens included.`);
+}
+module.exports = { parseEnvFile, origin, generate };
