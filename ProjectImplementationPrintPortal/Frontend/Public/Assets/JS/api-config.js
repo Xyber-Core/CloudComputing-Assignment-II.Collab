@@ -1,5 +1,5 @@
 /* ========================================================================== */
-/* Public API routing: host names determine the provider; secrets never live here. */
+/* Public API routing v2: the actual browser host owns its API. Public URLs only. */
 /* ========================================================================== */
 
 // Real URLs are provided by Assets/JSON/public-config.json (built from dev.env or CI vars).
@@ -10,6 +10,8 @@ const EMPTY_CONFIG = Object.freeze({
   azureClassSite: '',
   deploymentMode: 'auto',
 });
+
+export const API_ROUTING_VERSION = 'host-bound-v2-20261117';
 
 export const API_LABELS = Object.freeze({
   local: 'Local Express',
@@ -45,7 +47,9 @@ export async function loadPublicConfig(fetchImpl = fetch) {
   // Reset before loading: one deployment must never inherit a previous test's map.
   publicConfig = { ...EMPTY_CONFIG };
   try {
-    const response = await fetchImpl('./Assets/JSON/public-config.json', { cache: 'no-store' });
+    // Resolve alongside this module, not against the page URL or a redirected route.
+    const configUrl = new URL('../JSON/public-config.json', import.meta.url);
+    const response = await fetchImpl(configUrl.href, { cache: 'no-store' });
     if (response.ok) {
       const values = await response.json();
       if (values && typeof values === 'object' && !Array.isArray(values)) {
@@ -101,24 +105,31 @@ export function canUseMode(mode, hostname) {
 }
 
 export function apiOriginFor(mode, currentOrigin = '') {
+  // Never trust a stale saved mode or config to route an Azure page to Cloudflare.
+  // Every real Azure page owns /api on the same origin. This is a security and
+  // correctness invariant even if a previous frontend build selected "cloud".
+  const currentHost = hostnameOf(currentOrigin);
+  const origin = parseOrigin(currentOrigin);
+  if (origin && isLocal(currentHost)) {
+    return `${new URL(origin).protocol}//${currentHost}:3000`;
+  }
+  const cloudHost = hostnameOf(publicConfig.cloudflareSite);
+  if (origin && (currentHost === cloudHost || currentHost.endsWith('.pages.dev'))) {
+    return publicConfig.cloudflareApi;
+  }
+  if (origin && (currentHost.endsWith('.azurewebsites.net') ||
+      currentHost === hostnameOf(publicConfig.azureSite) ||
+      (publicConfig.azureClassSite && currentHost === hostnameOf(publicConfig.azureClassSite)))) {
+    return origin;
+  }
+
+  // A custom domain that is not identifiable from its hostname can use the
+  // CI-generated public-config deployment mode, but never a guessed provider.
   if (mode === 'cloud') return publicConfig.cloudflareApi;
   if (mode === 'azure' || mode === 'azure-class') {
-    const site = mode === 'azure' ? publicConfig.azureSite : publicConfig.azureClassSite;
-    if (!site) return '';
-    // Azure Express serves /api on the SAME host as the frontend.
-    // Only use currentOrigin when it really belongs to this Azure app/preview.
-    const currentHost = hostnameOf(currentOrigin);
-    if (currentOrigin && (currentOrigin === site ||
-        currentHost.endsWith('.azurewebsites.net'))) return currentOrigin;
-    return site;
+    return mode === 'azure' ? publicConfig.azureSite : publicConfig.azureClassSite;
   }
-  if (mode === 'local') {
-    try {
-      const current = new URL(currentOrigin);
-      if (isLocal(current.hostname)) return `${current.protocol}//${current.hostname}:3000`;
-    } catch { /* local port is fixed for the demo server */ }
-    return 'http://localhost:3000';
-  }
+  if (mode === 'local') return 'http://localhost:3000';
   return '';
 }
 

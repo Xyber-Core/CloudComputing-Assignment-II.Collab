@@ -242,7 +242,16 @@ function createApp({ repo = createMemoryRepo() } = {}) {
     });
 
     // Serve frontend pages and assets
-    app.use(express.static(frontendPath));
+    // Cache revalidation prevents Azure from serving an old API switch/UI.
+    app.use(express.static(frontendPath, {
+        setHeaders(res, filePath) {
+            if (filePath.endsWith('public-config.json')) {
+                res.setHeader('Cache-Control', 'no-store');
+            } else if (/\.(?:html|js|css)$/i.test(filePath)) {
+                res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+            }
+        }
+    }));
 
     // Handle malformed JSON
     app.use((err, req, res, next) => {

@@ -85,3 +85,19 @@ test('generator never inherits a stale class URL and allows explicitly clearing 
   assert.throws(() => generate(map, {}, { PUBLIC_AZURE_SITE_URL: 'https://example.com/path' }), /HTTPS origin/);
   assert.throws(() => generate(map, {}, { PUBLIC_DEPLOYMENT_MODE: 'azure-class' }), /Class Azure site URL is required/);
 });
+
+
+test('Azure never calls Cloudflare even with a stale Cloudflare selection', async () => {
+  const api = await setConfig();
+  assert.equal(api.apiOriginFor('cloud', map.azureSite), map.azureSite);
+  assert.equal(api.apiOriginFor('azure', map.cloudflareSite), map.cloudflareApi);
+  assert.equal(api.apiOriginFor('azure', 'http://localhost:5173'), 'http://localhost:3000');
+  assert.equal(api.apiOriginFor('cloud', 'https://preview.example.azurewebsites.net'), 'https://preview.example.azurewebsites.net');
+});
+
+test('Azure local API remains functional even if the public config fails to load', async () => {
+  const api = await setConfig();
+  await api.loadPublicConfig(async () => { throw new Error('unavailable'); });
+  assert.equal(api.apiOriginFor('cloud', map.azureSite), map.azureSite);
+  assert.equal(api.apiOriginFor('cloud', map.cloudflareSite), '');
+});

@@ -1,58 +1,87 @@
+name: PrintPortal · Azure Node deployment
 
-name: Build and deploy Wellington Print Portal
-
+# Both Azure accounts use the SAME code with different environment variables.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
-
-env:
-  AZURE_WEBAPP_NAME: wellingtionprint
-  AZURE_WEBAPP_PACKAGE_PATH: 'ProjectImplementationPrintPortal/Frontend/Public'
-  NODE_VERSION: '22.x'
+    inputs:
+      target:
+        description: "Which Azure Web App should receive this build?"
+        required: true
+        type: choice
+        options: [azure-test, azure-class]
 
 permissions:
   contents: read
+concurrency:
+  group: printportal-azure-${{ inputs.target }}
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-
+    environment: ${{ inputs.target }}
+    env:
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+      PUBLIC_CLOUDFLARE_SITE_URL: ${{ vars.PUBLIC_CLOUDFLARE_SITE_URL }}
+      PUBLIC_CLOUDFLARE_API_URL: ${{ vars.PUBLIC_CLOUDFLARE_API_URL }}
+      PUBLIC_AZURE_SITE_URL: ${{ vars.PUBLIC_AZURE_SITE_URL }}
+      PUBLIC_AZURE_CLASS_SITE_URL: ${{ vars.PUBLIC_AZURE_CLASS_SITE_URL }}
+      PUBLIC_DEPLOYMENT_MODE: ${{ inputs.target == 'azure-class' && 'azure-class' || 'azure' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Check frontend files
+          node-version: '24'
+          cache: npm
+      - name: Verify selected deployment
+        env:
+          AZURE_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         run: |
-          ls -la "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}"
-          test -f "${{ env.AZURE_WEBAPP_PACKAGE_PATH }}/index.html"
-
-      - name: Upload website artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Download website artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-          path: ./website
-
-      - name: Deploy to Azure Web App
+          test -n "$AZURE_WEBAPP_NAME" || { echo 'Set environment var AZURE_WEBAPP_NAME'; exit 1; }
+          test -n "$AZURE_PROFILE" || { echo 'Set environment secret AZURE_WEBAPP_PUBLISH_PROFILE'; exit 1; }
+          test -n "$PUBLIC_CLOUDFLARE_SITE_URL" && test -n "$PUBLIC_CLOUDFLARE_API_URL"
+          test -n "$PUBLIC_AZURE_SITE_URL"
+          if [ "$PUBLIC_DEPLOYMENT_MODE" = 'azure-class' ]; then test -n "$PUBLIC_AZURE_CLASS_SITE_URL"; fi
+      - run: npm ci
+      - run: npm test
+      - name: Build public config and deployment package
+        run: |
+          npm run config:ci
+          mkdir -p staging/ProjectImplementationPrintPortal/API
+          cp package.json package-lock.json staging/
+          cp -R ProjectImplementationPrintPortal/Frontend staging/ProjectImplementationPrintPortal/
+          cp ProjectImplementationPrintPortal/API/server.js staging/ProjectImplementationPrintPortal/API/
+          cp -R ProjectImplementationPrintPortal/API/SRC staging/ProjectImplementationPrintPortal/API/
+          cd staging
+          npm ci --omit=dev --no-audit --no-fund
+          node -e "const c=require('./ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON/public-config.json');if(!c.azureSite)process.exit(1)"
+      - name: Deploy Node.js Express + frontend
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ./website
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./staging
+      - name: Verify API started on the selected app
+        run: |
+          url=$(node -e "const c=require('./staging/ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON/public-config.json');process.stdout.write(c[process.env.PUBLIC_DEPLOYMENT_MODE==='azure-class'?'azureClassSite':'azureSite'])")
+          for attempt in $(seq 1 8); do
+            if curl --fail --silent --show-error --max-time 8 "$url/api/health" | grep -q '"status":"ok"'; then exit 0; fi
+            sleep 8
+          done
+          echo 'Azure did not return the expected /api/health response.'
+          exit 1
+      - name: Confirm the new UI and correct Azure routing are deployed
+        run: |
+          site=$(node -e "const c=require('./staging/ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON/public-config.json');process.stdout.write(c[process.env.PUBLIC_DEPLOYMENT_MODE==='azure-class'?'azureClassSite':'azureSite'])")
+          # Guard against a successful upload that still serves an old PHP/static site.
+          curl --fail --silent --show-error --retry 4 --retry-delay 3 --max-time 15 \
+            "$site/Assets/JS/api-config.js?ci=${{ github.sha }}" | grep -q 'host-bound-v2-20261117' || {
+              echo 'Azure is serving outdated API routing JS. Check app name, branch, runtime and deployment logs.'; exit 1;
+            }
+          SITE="$site" node - <<'NODE'
+          const site = process.env.SITE;
+          const c = require('./staging/ProjectImplementationPrintPortal/Frontend/Public/Assets/JSON/public-config.json');
+          const expected = process.env.PUBLIC_DEPLOYMENT_MODE === 'azure-class' ? c.azureClassSite : c.azureSite;
+          if (new URL(site).origin !== new URL(expected).origin) process.exit(1);
+          console.log('Verified intended Azure deployment host:', site);
+          NODE

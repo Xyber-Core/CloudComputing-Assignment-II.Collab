@@ -2,7 +2,7 @@
  * UI state is transient; API authorization is enforced by the server, not the DOM.
  */
 import { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
-import { API_LABELS, apiOriginFor, canUseMode, defaultApiMode, loadPublicConfig, navigationTarget } from './api-config.js';
+import { API_LABELS, API_ROUTING_VERSION, apiOriginFor, canUseMode, defaultApiMode, loadPublicConfig, navigationTarget } from './api-config.js';
 export { nextStatus, buildQuery, escapeHtml } from './Helpers.js';
 
 /* ========================================================================== */
@@ -130,7 +130,7 @@ function populateSelect(element, items, placeholder) {
 async function loadComponent(selector, path) {
   const target = $(selector);
   if (!target) throw new Error(`Component mount point ${selector} was not found.`);
-  const response = await fetch(`./Assets/Components/${path}`);
+  const response = await fetch(`./Assets/Components/${path}`, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`Unable to load ${path} (${response.status}).`);
   target.innerHTML = await response.text();
 }
@@ -637,6 +637,7 @@ async function init() {
     // Read the public deployment map before choosing an API or loading controls.
     await loadPublicConfig();
     apiMode = defaultApiMode(location.hostname);
+    console.info(`[PrintPortal ${API_ROUTING_VERSION}] Host: ${location.hostname}, mode: ${apiMode}, API: ${apiOrigin() || 'not configured'}`);
     if (!apiMode) throw new Error('This host is not assigned to an API. Check public-config.json.');
     const referenceResponse = await fetch(DATA_URL);
     if (!referenceResponse.ok) throw new Error(`Unable to load reference data (${referenceResponse.status}).`);
